@@ -1,5 +1,19 @@
+"use client";
+
 import { ListingManager } from "@/components/listing-manager";
+import { useDesigns } from "@/hooks/useDesigns";
 
 export default function DesignListingsPage() {
-  return <ListingManager kind="design" />;
+  const { designs, isLoading, createDesign, updateDesign, deleteDesign } = useDesigns();
+
+  return (
+    <ListingManager
+      kind="design"
+      listings={designs as any}
+      isLoading={isLoading}
+      onCreate={createDesign}
+      onUpdate={(id, data) => updateDesign({ id, data })}
+      onDelete={deleteDesign}
+    />
+  );
 }

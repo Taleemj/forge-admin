@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
+import { useAuth } from "@/hooks/useAuth";
 
 const { Text, Title } = Typography;
 
@@ -16,15 +17,23 @@ type ForgotValues = {
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const { forgotPassword } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (values: ForgotValues) => {
+  const handleSubmit = async (values: ForgotValues) => {
     setLoading(true);
+    setError(null);
 
-    window.setTimeout(() => {
-      setLoading(false);
+    const result = await forgotPassword(values);
+    setLoading(false);
+
+    if (result.success) {
       router.push(`/verify-otp?email=${encodeURIComponent(values.email)}&mode=reset`);
-    }, 500);
+      return;
+    }
+
+    setError(result.message || "Unable to send reset code");
   };
 
   return (
@@ -37,6 +46,8 @@ export default function ForgotPasswordPage() {
         <Text className="dashboard-kicker">Reset request</Text>
         <Title level={2}>Forgot password</Title>
       </Space>
+
+      {error ? <Text type="danger">{error}</Text> : null}
 
       <Form layout="vertical" requiredMark={false} onFinish={handleSubmit}>
         <Form.Item

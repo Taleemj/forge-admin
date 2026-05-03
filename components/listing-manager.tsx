@@ -26,6 +26,7 @@ import {
   Tag,
   Typography,
   Upload,
+  message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { UploadFile } from "antd/es/upload/interface";
@@ -42,11 +43,10 @@ const imageFallback =
 export type ListingKind = "land" | "design";
 
 export type AdminListing = {
-  id: string;
+  _id: string;
   title: string;
   price: number;
   images: string[];
-  videos?: string[];
   descriptionMarkdown?: string;
   status?: "available" | "sold";
   location?: string;
@@ -57,116 +57,49 @@ export type AdminListing = {
   };
   description?: string;
   floorPlan?: string;
+  media?: Array<{
+    type: "image" | "video";
+    url: string;
+    thumbnail?: string;
+    title?: string;
+  }>;
 };
 
-type ListingFormValues = Omit<AdminListing, "id" | "images" | "videos"> & {
+type ListingFormValues = Omit<AdminListing, "_id" | "images"> & {
   imageUploads?: UploadFile[];
-  videoUploads?: UploadFile[];
   floorPlanUpload?: UploadFile[];
   latitude?: number;
   longitude?: number;
 };
 
-const landSeed: AdminListing[] = [
-  {
-    id: "land-01",
-    title: "Kilifi Ocean View",
-    location: "Kilifi, Kenya",
-    size: "0.5 Acre",
-    price: 12000,
-    status: "sold",
-    images: [
-      "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1000&auto=format&fit=crop",
-    ],
-    coordinates: { latitude: -3.6305, longitude: 39.8499 },
-    descriptionMarkdown:
-      "# Coastal Plot Overview\nA premium elevated plot with uninterrupted ocean breezes and clear access roads.\n\n## Why It Stands Out\n- **Ready utilities** available within the immediate neighborhood.\n- Ideal for a boutique villa, holiday home, or short-stay investment.\n- Admin can include rich markdown from the CMS.",
-  },
-  {
-    id: "land-02",
-    title: "Naivasha Lakeside",
-    location: "Naivasha, Kenya",
-    size: "1.0 Acre",
-    price: 18500,
-    status: "available",
-    images: [
-      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1000&auto=format&fit=crop",
-    ],
-    coordinates: { latitude: -0.7167, longitude: 36.4333 },
-    descriptionMarkdown:
-      "# Naivasha Lakeside\nA larger parcel suited for a family residence or hospitality concept.\n\n## Highlights\n- **Generous road frontage** with multiple layout options.\n- Strong potential for a lake-view residential concept.",
-  },
-  {
-    id: "land-03",
-    title: "Kira Suburb Lot",
-    location: "Wakiso, Uganda",
-    size: "0.25 Acre",
-    price: 8000,
-    status: "available",
-    images: [
-      "https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=1000&auto=format&fit=crop",
-    ],
-    coordinates: { latitude: 0.3961, longitude: 32.6498 },
-    descriptionMarkdown:
-      "# Kira Residential Plot\nA practical suburban lot for a first home build close to Kampala growth corridors.\n\n## Best Fit\n- Starter family home\n- Compact rental development\n- Future-value hold",
-  },
-];
-
-const designSeed: AdminListing[] = [
-  {
-    id: "design-01",
-    title: "The Modern African Villa",
-    description: "A 3-bedroom sustainable home designed for coastal climates.",
-    price: 2500,
-    images: [
-      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1000&auto=format&fit=crop",
-    ],
-    floorPlan: "https://picsum.photos/seed/plan1/600/400",
-    descriptionMarkdown:
-      "# The Modern African Villa\nA premium 3-bedroom concept tuned for warm climates and indoor-outdoor living.\n\n## Included In The Package\n- Exterior elevations and concept renders\n- Preliminary floor planning\n- Presentation-ready package for quote discussions",
-  },
-  {
-    id: "design-02",
-    title: "Eco-Lodge Concept",
-    description: "Minimalist design with maximum natural light and ventilation.",
-    price: 1800,
-    images: [
-      "https://images.unsplash.com/photo-1518780664697-55e3ad937233?q=80&w=1000&auto=format&fit=crop",
-    ],
-    floorPlan: "https://picsum.photos/seed/plan2/600/400",
-    descriptionMarkdown:
-      "# Eco-Lodge Concept\nA lightweight hospitality-friendly design language focused on natural light, ventilation, and memorable guest experience.\n\n## Key Characteristics\n- Passive cooling strategy\n- Flexible interior zoning\n- Strong indoor-outdoor connection",
-  },
-];
-
-function urlsFromUpload(files?: UploadFile[]) {
-  return (files ?? [])
-    .map((file) => {
-      if (file.url) return file.url;
-      if (file.thumbUrl) return file.thumbUrl;
-      if (file.originFileObj) return URL.createObjectURL(file.originFileObj);
-      return "";
-    })
-    .filter(Boolean);
+interface ListingManagerProps {
+  kind: ListingKind;
+  listings: AdminListing[];
+  isLoading: boolean;
+  onCreate: (data: Partial<AdminListing>) => Promise<any>;
+  onUpdate: (id: string, data: Partial<AdminListing>) => Promise<any>;
+  onDelete: (id: string) => Promise<any>;
 }
 
 function uploadValueFromEvent(event: { fileList?: UploadFile[] } | UploadFile[]) {
   return Array.isArray(event) ? event : event?.fileList;
 }
 
-function getSeed(kind: ListingKind) {
-  return kind === "land" ? landSeed : designSeed;
-}
-
-export function ListingManager({ kind }: { kind: ListingKind }) {
+export function ListingManager({
+  kind,
+  listings,
+  isLoading,
+  onCreate,
+  onUpdate,
+  onDelete,
+}: ListingManagerProps) {
   const [form] = Form.useForm<ListingFormValues>();
-  const [listings, setListings] = useState<AdminListing[]>(() => getSeed(kind));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<AdminListing | null>(null);
   const [previewing, setPreviewing] = useState<AdminListing | null>(null);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
-  const [removedVideos, setRemovedVideos] = useState<string[]>([]);
   const [removeFloorPlan, setRemoveFloorPlan] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const copy = useMemo(() => {
     const isLand = kind === "land";
@@ -175,7 +108,7 @@ export function ListingManager({ kind }: { kind: ListingKind }) {
       title: isLand ? "Land Listings" : "House Designs",
       kicker: isLand ? "Marketplace inventory" : "Design catalogue",
       description: isLand
-        ? "Create, edit, publish, and retire land listings before wiring the backend."
+        ? "Create, edit, publish, and retire land listings."
         : "Manage design packages, floor plans, gallery media, pricing, and markdown descriptions.",
       createLabel: isLand ? "New Land Listing" : "New Design",
     };
@@ -184,7 +117,6 @@ export function ListingManager({ kind }: { kind: ListingKind }) {
   const openCreate = () => {
     setEditing(null);
     setRemovedImages([]);
-    setRemovedVideos([]);
     setRemoveFloorPlan(false);
     form.resetFields();
     form.setFieldsValue({
@@ -200,72 +132,67 @@ export function ListingManager({ kind }: { kind: ListingKind }) {
   const openEdit = (listing: AdminListing) => {
     setEditing(listing);
     setRemovedImages([]);
-    setRemovedVideos([]);
     setRemoveFloorPlan(false);
     form.setFieldsValue({
       ...listing,
-      imageUploads: [],
-      videoUploads: [],
-      floorPlanUpload: [],
       latitude: listing.coordinates?.latitude,
       longitude: listing.coordinates?.longitude,
     });
     setDrawerOpen(true);
   };
 
-  const handleSubmit = (values: ListingFormValues) => {
-    const uploadedImages = urlsFromUpload(values.imageUploads);
-    const uploadedVideos = urlsFromUpload(values.videoUploads);
-    const floorPlanUpload = urlsFromUpload(values.floorPlanUpload)[0];
-    const keptImages =
-      editing?.images.filter((image) => !removedImages.includes(image)) ?? [];
-    const keptVideos =
-      editing?.videos?.filter((video) => !removedVideos.includes(video)) ?? [];
-    const nextListing: AdminListing = {
-      id: editing?.id ?? `${kind}-${Date.now()}`,
-      title: values.title,
-      price: Number(values.price ?? 0),
-      images: editing ? [...keptImages, ...uploadedImages] : uploadedImages,
-      videos: editing ? [...keptVideos, ...uploadedVideos] : uploadedVideos,
-      descriptionMarkdown: values.descriptionMarkdown,
-      status: kind === "land" ? values.status : undefined,
-      location: values.location,
-      size: values.size,
-      description: values.description,
-      floorPlan: floorPlanUpload || (removeFloorPlan ? undefined : editing?.floorPlan),
-      coordinates:
-        values.latitude !== undefined && values.longitude !== undefined
-          ? {
-              latitude: Number(values.latitude),
-              longitude: Number(values.longitude),
-            }
-          : undefined,
-    };
+  const handleSubmit = async (values: any) => {
+    setSubmitting(true);
+    try {
+      const keptImages =
+        editing?.images.filter((image) => !removedImages.includes(image)) ?? [];
+      
+      const newImagesList = values.newImages
+        ? values.newImages.split(",").map((s: string) => s.trim()).filter(Boolean)
+        : [];
 
-    setListings((current) =>
-      editing
-        ? current.map((item) => (item.id === editing.id ? nextListing : item))
-        : [nextListing, ...current],
-    );
-    setDrawerOpen(false);
-    setRemovedImages([]);
-    setRemovedVideos([]);
-    setRemoveFloorPlan(false);
+      const payload: Partial<AdminListing> = {
+        title: values.title,
+        price: Number(values.price ?? 0),
+        images: [...keptImages, ...newImagesList],
+        descriptionMarkdown: values.descriptionMarkdown,
+        status: kind === "land" ? values.status : undefined,
+        location: values.location,
+        size: values.size,
+        description: values.description,
+        floorPlan: removeFloorPlan ? undefined : (values.floorPlan || editing?.floorPlan),
+        coordinates:
+          values.latitude !== undefined && values.longitude !== undefined
+            ? {
+                latitude: Number(values.latitude),
+                longitude: Number(values.longitude),
+              }
+            : undefined,
+      };
+
+      if (editing) {
+        await onUpdate(editing._id, payload);
+        message.success("Listing updated");
+      } else {
+        await onCreate(payload);
+        message.success("Listing created");
+      }
+      setDrawerOpen(false);
+    } catch (error) {
+      console.error("Save error:", error);
+      message.error("Failed to save listing");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDuplicate = (listing: AdminListing) => {
-    setListings((current) => [
-      {
-        ...listing,
-        id: `${listing.id}-copy-${Date.now()}`,
-        title: `${listing.title} Copy`,
-      },
-      ...current,
-    ]);
-  };
-
-  const handleDelete = (id: string) => {
-    setListings((current) => current.filter((item) => item.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      await onDelete(id);
+      message.success("Listing deleted");
+    } catch (error) {
+      message.error("Failed to delete listing");
+    }
   };
 
   const columns: ColumnsType<AdminListing> = [
@@ -317,23 +244,22 @@ export function ListingManager({ kind }: { kind: ListingKind }) {
       key: "media",
       render: (_, listing) => (
         <Tag color="processing">
-          {listing.images.length + (listing.videos?.length ?? 0)} files
+          {listing.images.length + (listing.media?.length ?? 0)} files
         </Tag>
       ),
     },
     {
       title: "Actions",
       key: "actions",
-      width: 230,
+      width: 200,
       render: (_, listing) => (
         <Space>
           <Button icon={<EyeOutlined />} onClick={() => setPreviewing(listing)} />
           <Button icon={<EditOutlined />} onClick={() => openEdit(listing)} />
-          <Button icon={<CopyOutlined />} onClick={() => handleDuplicate(listing)} />
           <Popconfirm
             title="Delete listing?"
-            description="This only removes it from the local dashboard state for now."
-            onConfirm={() => handleDelete(listing.id)}
+            description="Are you sure you want to delete this listing?"
+            onConfirm={() => handleDelete(listing._id)}
           >
             <Button danger icon={<DeleteOutlined />} />
           </Popconfirm>
@@ -361,7 +287,8 @@ export function ListingManager({ kind }: { kind: ListingKind }) {
         <Table
           columns={columns}
           dataSource={listings}
-          rowKey="id"
+          rowKey="_id"
+          loading={isLoading}
           pagination={{ pageSize: 8 }}
           scroll={{ x: 920 }}
         />
@@ -372,11 +299,11 @@ export function ListingManager({ kind }: { kind: ListingKind }) {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         width={760}
-        destroyOnHidden
+        destroyOnClose
         extra={
           <Space>
             <Button onClick={() => setDrawerOpen(false)}>Cancel</Button>
-            <Button type="primary" onClick={() => form.submit()}>
+            <Button type="primary" onClick={() => form.submit()} loading={submitting}>
               Save
             </Button>
           </Space>
@@ -429,10 +356,10 @@ export function ListingManager({ kind }: { kind: ListingKind }) {
               </Flex>
               <Flex gap={16} className="listing-form-row">
                 <Form.Item label="Latitude" name="latitude" className="listing-form-field">
-                  <InputNumber className="full-width" />
+                  <InputNumber className="full-width" step={0.0001} />
                 </Form.Item>
                 <Form.Item label="Longitude" name="longitude" className="listing-form-field">
-                  <InputNumber className="full-width" />
+                  <InputNumber className="full-width" step={0.0001} />
                 </Form.Item>
               </Flex>
             </>
@@ -459,105 +386,52 @@ export function ListingManager({ kind }: { kind: ListingKind }) {
                     className="listing-preview-image"
                   />
                 </Card>
-              ) : null}
-              <Form.Item
-                label="Upload Floor Plan"
-                name="floorPlanUpload"
-                valuePropName="fileList"
-                getValueFromEvent={uploadValueFromEvent}
-              >
-                <Upload beforeUpload={() => false} maxCount={1} listType="picture">
-                  <Button icon={<UploadOutlined />}>Select floor plan</Button>
-                </Upload>
-              </Form.Item>
+              ) : (
+                <Form.Item label="Floor Plan URL" name="floorPlan">
+                  <Input placeholder="https://..." />
+                </Form.Item>
+              )}
             </>
           )}
 
           {editing &&
-          (editing.images.some((image) => !removedImages.includes(image)) ||
-            editing.videos?.some((video) => !removedVideos.includes(video))) ? (
+          editing.images.some((image) => !removedImages.includes(image)) ? (
             <Card size="small" className="stored-media-card">
               <Space direction="vertical" size={12} className="full-width">
-                <Text strong>Stored media from backend</Text>
-                {editing.images.some((image) => !removedImages.includes(image)) ? (
-                  <Image.PreviewGroup>
-                    <Flex gap={10} wrap="wrap" align="flex-start">
-                      {editing.images
-                        .filter((image) => !removedImages.includes(image))
-                        .map((image) => (
-                          <div key={image} className="stored-media-item">
-                            <Image
-                              src={image}
-                              alt={editing.title}
-                              width={104}
-                              height={72}
-                              className="listing-preview-image"
-                            />
-                            <Button
-                              danger
-                              size="small"
-                              icon={<DeleteOutlined />}
-                              onClick={() =>
-                                setRemovedImages((current) => [...current, image])
-                              }
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        ))}
-                    </Flex>
-                  </Image.PreviewGroup>
-                ) : null}
-                {editing.videos?.some((video) => !removedVideos.includes(video)) ? (
-                  <Space direction="vertical" size={8} className="full-width">
-                    {editing.videos
-                      .filter((video) => !removedVideos.includes(video))
-                      .map((video) => (
-                        <div key={video} className="stored-video-item">
-                          <video src={video} controls className="listing-video-preview" />
+                <Text strong>Stored images</Text>
+                <Image.PreviewGroup>
+                  <Flex gap={10} wrap="wrap" align="flex-start">
+                    {editing.images
+                      .filter((image) => !removedImages.includes(image))
+                      .map((image) => (
+                        <div key={image} className="stored-media-item">
+                          <Image
+                            src={image}
+                            alt={editing.title}
+                            width={104}
+                            height={72}
+                            className="listing-preview-image"
+                          />
                           <Button
                             danger
                             size="small"
                             icon={<DeleteOutlined />}
                             onClick={() =>
-                              setRemovedVideos((current) => [...current, video])
+                              setRemovedImages((current) => [...current, image])
                             }
                           >
-                            Remove video
+                            Remove
                           </Button>
                         </div>
                       ))}
-                  </Space>
-                ) : null}
+                  </Flex>
+                </Image.PreviewGroup>
               </Space>
             </Card>
           ) : null}
 
-          <Form.Item
-            label="Upload Images"
-            name="imageUploads"
-            valuePropName="fileList"
-            getValueFromEvent={uploadValueFromEvent}
-          >
-            <Upload
-              accept="image/*"
-              beforeUpload={() => false}
-              multiple
-              listType="picture-card"
-            >
-              <UploadOutlined />
-            </Upload>
-          </Form.Item>
-
-          <Form.Item
-            label="Upload Videos"
-            name="videoUploads"
-            valuePropName="fileList"
-            getValueFromEvent={uploadValueFromEvent}
-          >
-            <Upload accept="video/*" beforeUpload={() => false} multiple>
-              <Button icon={<UploadOutlined />}>Select videos</Button>
-            </Upload>
+          <Form.Item label="Add Image URL (Comma separated)" name="newImages">
+             <Input placeholder="https://image1.com, https://image2.com" />
           </Form.Item>
 
           <Form.Item label="Markdown Description" name="descriptionMarkdown">
@@ -599,18 +473,6 @@ export function ListingManager({ kind }: { kind: ListingKind }) {
                 ) : null}
               </Flex>
             </Image.PreviewGroup>
-            {previewing.videos?.length ? (
-              <Space direction="vertical" size={10} className="full-width">
-                {previewing.videos.map((video) => (
-                  <video
-                    key={video}
-                    src={video}
-                    controls
-                    className="listing-video-preview"
-                  />
-                ))}
-              </Space>
-            ) : null}
 
             <Descriptions bordered size="small" column={1}>
               <Descriptions.Item label="Price">

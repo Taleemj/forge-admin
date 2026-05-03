@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
+import { useAuth } from "@/hooks/useAuth";
 
 const { Text, Title } = Typography;
 
@@ -34,22 +35,34 @@ function passwordScore(password = "") {
 function ResetPasswordView() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { resetPassword } = useAuth();
   const [form] = Form.useForm<ResetValues>();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const password = Form.useWatch("password", form);
   const score = passwordScore(password);
   const email = useMemo(() => searchParams.get("email") ?? "", [searchParams]);
   const otp = useMemo(() => searchParams.get("otp") ?? "", [searchParams]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async (values: ResetValues) => {
     setLoading(true);
+    setError(null);
 
-    window.setTimeout(() => {
-      setLoading(false);
+    const result = await resetPassword({
+      email,
+      otp: values.otp,
+      password: values.password,
+    });
+    setLoading(false);
+
+    if (result.success) {
       setSuccess(true);
       window.setTimeout(() => router.push("/login"), 650);
-    }, 500);
+      return;
+    }
+
+    setError(result.message || "Unable to reset password");
   };
 
   return (
@@ -76,6 +89,7 @@ function ResetPasswordView() {
           message="Password reset complete"
         />
       ) : null}
+      {error ? <Text type="danger">{error}</Text> : null}
 
       <Form
         form={form}

@@ -24,36 +24,14 @@ import {
 } from "antd";
 import type { MenuProps } from "antd";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { adminModules } from "@/components/admin-navigation";
+import { useAuth } from "@/hooks/useAuth";
 
 const { Header, Content, Sider } = Layout;
 const { Text, Title } = Typography;
-
-const navigationItems: MenuProps["items"] = adminModules.map((module) => ({
-  key: module.href,
-  icon: module.icon,
-  label: <Link href={module.href}>{module.label}</Link>,
-}));
-
-const accountItems: MenuProps["items"] = [
-  {
-    key: "settings",
-    icon: <SettingOutlined />,
-    label: <Link href="/dashboard/settings">Settings</Link>,
-  },
-  {
-    type: "divider",
-  },
-  {
-    key: "signout",
-    danger: true,
-    icon: <LogoutOutlined />,
-    label: <Link href="/login">Sign out</Link>,
-  },
-];
 
 const notifications = [
   {
@@ -79,10 +57,10 @@ const notifications = [
   },
 ];
 
-function getSelectedKey(pathname: string) {
-  const selected = navigationItems
+function getSelectedKey(pathname: string, items: MenuProps["items"]) {
+  const selected = items
     ?.map((item) => item?.key?.toString())
-    .filter(Boolean)
+    .filter((key): key is string => Boolean(key))
     .sort((a, b) => b.length - a.length)
     .find((key) => pathname === key || pathname.startsWith(`${key}/`));
 
@@ -90,9 +68,56 @@ function getSelectedKey(pathname: string) {
 }
 
 export function AdminShell({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
+  const { signOut, user, isAuthenticated, isLoading } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
-  const selectedKeys = useMemo(() => getSelectedKey(pathname), [pathname]);
+  const allowedModules = useMemo(
+    () =>
+      user?.modules?.length
+        ? adminModules.filter((module) => user.modules.includes(module.key))
+        : adminModules,
+    [user],
+  );
+  const navigationItems: MenuProps["items"] = useMemo(
+    () =>
+      allowedModules.map((module) => ({
+        key: module.href,
+        icon: module.icon,
+        label: <Link href={module.href}>{module.label}</Link>,
+      })),
+    [allowedModules],
+  );
+  const selectedKeys = useMemo(
+    () => getSelectedKey(pathname, navigationItems),
+    [pathname, navigationItems],
+  );
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, isLoading, router]);
+  const accountItems: MenuProps["items"] = [
+    {
+      key: "settings",
+      icon: <SettingOutlined />,
+      label: <Link href="/dashboard/settings">Settings</Link>,
+    },
+    {
+      type: "divider",
+    },
+    {
+      key: "signout",
+      danger: true,
+      icon: <LogoutOutlined />,
+      label: "Sign out",
+      onClick: () => {
+        signOut();
+        router.push("/login");
+      },
+    },
+  ];
   const notificationContent = (
     <div className="notification-popover">
       <Flex align="center" justify="space-between" className="notification-popover-head">
@@ -134,6 +159,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </Link>
     </div>
   );
+
+  if (isLoading || !isAuthenticated) {
+    return null;
+  }
 
   return (
     <Layout className="admin-shell">
@@ -195,7 +224,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <button className="admin-account-trigger" type="button">
                 <Avatar size={36} icon={<UserOutlined />} />
                 <span className="admin-account-copy">
-                  <span className="admin-account-name">Admin User</span>
+                  <span className="admin-account-name">{user?.name || "Admin User"}</span>
                 </span>
               </button>
             </Dropdown>

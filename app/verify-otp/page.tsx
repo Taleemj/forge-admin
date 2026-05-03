@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
+import { useAuth } from "@/hooks/useAuth";
 
 const { Text, Title } = Typography;
 
@@ -18,31 +19,48 @@ type OtpValues = {
 function VerifyOtpView() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { forgotPassword, verifyResetOtp } = useAuth();
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const email = useMemo(() => searchParams.get("email") ?? "", [searchParams]);
 
-  const handleSubmit = (values: OtpValues) => {
+  const handleSubmit = async (values: OtpValues) => {
     setLoading(true);
+    setError(null);
     const resetEmail = email || values.emailDisplay || "";
 
-    window.setTimeout(() => {
-      setLoading(false);
+    const result = await verifyResetOtp({ email: resetEmail, otp: values.otp });
+    setLoading(false);
+
+    if (result.success) {
       router.push(
         `/reset-password?email=${encodeURIComponent(resetEmail)}&otp=${encodeURIComponent(
           values.otp,
         )}`,
       );
-    }, 500);
+      return;
+    }
+
+    setError(result.message || "Invalid reset code");
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
+    const resetEmail = email;
+    if (!resetEmail) return;
+
     setResending(true);
-    window.setTimeout(() => {
-      setResending(false);
+    setError(null);
+    const result = await forgotPassword({ email: resetEmail });
+    setResending(false);
+
+    if (result.success) {
       setResent(true);
-    }, 500);
+      return;
+    }
+
+    setError(result.message || "Unable to resend code");
   };
 
   return (
@@ -62,6 +80,7 @@ function VerifyOtpView() {
       {resent ? (
         <Alert type="success" showIcon message="A new code has been queued for this email." />
       ) : null}
+      {error ? <Text type="danger">{error}</Text> : null}
 
       <Form layout="vertical" requiredMark={false} onFinish={handleSubmit}>
         {!email ? (
@@ -97,9 +116,11 @@ function VerifyOtpView() {
           Verify Code
         </Button>
 
-        <Button type="link" block loading={resending} onClick={handleResend}>
-          Resend Code
-        </Button>
+        {email ? (
+          <Button type="link" block loading={resending} onClick={handleResend}>
+            Resend Code
+          </Button>
+        ) : null}
       </Form>
     </AuthShell>
   );

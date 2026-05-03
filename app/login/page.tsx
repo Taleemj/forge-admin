@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
+import { useAuth } from "@/hooks/useAuth";
 
 const { Text, Title } = Typography;
 
@@ -22,15 +23,23 @@ type LoginValues = {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (_values: LoginValues) => {
+  const handleSubmit = async (values: LoginValues) => {
     setLoading(true);
+    setError(null);
 
-    window.setTimeout(() => {
-      setLoading(false);
+    const result = await signIn(values);
+    setLoading(false);
+
+    if (result.success) {
       router.push("/dashboard");
-    }, 500);
+      return;
+    }
+
+    setError(result.message || "Unable to sign in");
   };
 
   return (
@@ -39,6 +48,8 @@ export default function LoginPage() {
         <Text className="dashboard-kicker">Welcome back</Text>
         <Title level={2}>Login</Title>
       </Space>
+
+      {error ? <Text type="danger">{error}</Text> : null}
 
       <Form layout="vertical" requiredMark={false} onFinish={handleSubmit}>
         <Form.Item

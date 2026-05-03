@@ -3,12 +3,15 @@
 import { App, ConfigProvider } from "antd";
 import type { ReactNode } from "react";
 
+import { AuthProvider } from "@/context/auth-context";
 import { forgeTheme } from "./theme";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ConfigProvider theme={forgeTheme}>
-      <App>{children}</App>
+      <App>
+        <AuthProvider>{children}</AuthProvider>
+      </App>
     </ConfigProvider>
   );
 }
