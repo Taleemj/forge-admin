@@ -25,6 +25,7 @@ import {
   Table,
   Tag,
   Typography,
+  message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
@@ -34,19 +35,17 @@ import {
   type AdminModuleKey,
 } from "@/components/admin-navigation";
 import { AdminShell } from "@/components/admin-shell";
+import { useAdminUsers } from "@/hooks/useAdminUsers";
+import type { AdminUser } from "@/types/auth";
 
 const { Text, Title } = Typography;
 
-type AdminAccessUser = {
-  id: string;
+type UserFormValues = {
   name: string;
   email: string;
   role: "super_admin" | "admin" | "manager" | "viewer";
-  active: boolean;
+  isActive: boolean;
   modules: AdminModuleKey[];
-};
-
-type UserFormValues = Omit<AdminAccessUser, "id"> & {
   password?: string;
 };
 
@@ -57,45 +56,19 @@ const roleOptions = [
   { value: "viewer", label: "Viewer" },
 ];
 
-const seedUsers: AdminAccessUser[] = [
-  {
-    id: "admin-001",
-    name: "Admin User",
-    email: "admin@forgehousing.com",
-    role: "super_admin",
-    active: true,
-    modules: adminModules.map((module) => module.key),
-  },
-  {
-    id: "admin-002",
-    name: "Listings Manager",
-    email: "listings@forgehousing.com",
-    role: "manager",
-    active: true,
-    modules: ["dashboard", "lands", "designs", "notifications"],
-  },
-  {
-    id: "admin-003",
-    name: "Finance Viewer",
-    email: "finance@forgehousing.com",
-    role: "viewer",
-    active: false,
-    modules: ["dashboard", "payments"],
-  },
-];
-
-function roleLabel(role: AdminAccessUser["role"]) {
+function roleLabel(role: string) {
   return roleOptions.find((option) => option.value === role)?.label ?? role;
 }
 
 export default function AdminUsersPage() {
   const [form] = Form.useForm<UserFormValues>();
-  const [users, setUsers] = useState<AdminAccessUser[]>(seedUsers);
+  const { users, isLoading, createUser, updateUser, deleteUser } = useAdminUsers();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editing, setEditing] = useState<AdminAccessUser | null>(null);
+  const [editing, setEditing] = useState<AdminUser | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const activeCount = useMemo(
-    () => users.filter((user) => user.active).length,
+    () => users.filter((user) => user.isActive).length,
     [users],
   );
 
@@ -104,38 +77,67 @@ export default function AdminUsersPage() {
     form.resetFields();
     form.setFieldsValue({
       role: "admin",
-      active: true,
+      isActive: true,
       modules: ["dashboard"],
     });
     setDrawerOpen(true);
   };
 
-  const openEdit = (user: AdminAccessUser) => {
+  const openEdit = (user: AdminUser) => {
     setEditing(user);
-    form.setFieldsValue(user);
+    form.setFieldsValue({
+      name: user.name,
+      email: user.email,
+      role: user.role as any,
+      isActive: user.isActive,
+      modules: user.modules as AdminModuleKey[],
+    });
     setDrawerOpen(true);
   };
 
-  const handleSubmit = (values: UserFormValues) => {
-    const nextUser: AdminAccessUser = {
-      id: editing?.id ?? `admin-${Date.now()}`,
-      name: values.name,
-      email: values.email,
-      role: values.role,
-      active: values.active,
-      modules: values.modules,
-    };
-
-    setUsers((current) =>
-      editing
-        ? current.map((user) => (user.id === editing.id ? nextUser : user))
-        : [nextUser, ...current],
-    );
-    setDrawerOpen(false);
+  const handleSubmit = async (values: UserFormValues) => {
+    setSubmitting(true);
+    try {
+      if (editing) {
+        await updateUser({ id: editing.id, payload: values as any });
+        message.success("User updated successfully");
+      } else {
+        await createUser(values as any);
+        message.success("User created successfully");
+      }
+      setDrawerOpen(false);
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || "Failed to save user");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setUsers((current) => current.filter((user) => user.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteUser(id);
+      message.success("User deleted successfully");
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || "Failed to delete user");
+    }
+  };
+
+  const handleStatusChange = async (user: AdminUser, checked: boolean) => {
+    try {
+      await updateUser({
+        id: user.id,
+        payload: {
+          name: user.name,
+          email: user.email,
+          role: user.role as any,
+          isActive: checked,
+          modules: user.modules as AdminModuleKey[],
+        },
+      });
+      message.success(`User ${checked ? "activated" : "deactivated"}`);
+    } catch (error: any) {
+      message.error("Failed to update status");
+    }
   };
 
   const moduleOptions = adminModules.map((module) => ({
@@ -148,7 +150,7 @@ export default function AdminUsersPage() {
     value: module.key,
   }));
 
-  const columns: ColumnsType<AdminAccessUser> = [
+  const columns: ColumnsType<AdminUser> = [
     {
       title: "User",
       dataIndex: "name",
@@ -167,7 +169,7 @@ export default function AdminUsersPage() {
       title: "Role",
       dataIndex: "role",
       key: "role",
-      render: (role: AdminAccessUser["role"]) => (
+      render: (role: string) => (
         <Tag color={role === "super_admin" ? "success" : "processing"}>
           {roleLabel(role)}
         </Tag>
@@ -187,20 +189,14 @@ export default function AdminUsersPage() {
     },
     {
       title: "Status",
-      dataIndex: "active",
-      key: "active",
-      render: (active: boolean, user) => (
+      dataIndex: "isActive",
+      key: "isActive",
+      render: (isActive: boolean, user) => (
         <Switch
-          checked={active}
+          checked={isActive}
           checkedChildren="Active"
           unCheckedChildren="Off"
-          onChange={(checked) =>
-            setUsers((current) =>
-              current.map((item) =>
-                item.id === user.id ? { ...item, active: checked } : item,
-              ),
-            )
-          }
+          onChange={(checked) => handleStatusChange(user, checked)}
         />
       ),
     },
@@ -274,6 +270,7 @@ export default function AdminUsersPage() {
           columns={columns}
           dataSource={users}
           rowKey="id"
+          loading={isLoading}
           pagination={{ pageSize: 8 }}
           scroll={{ x: 980 }}
         />
@@ -284,11 +281,11 @@ export default function AdminUsersPage() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         width={680}
-        destroyOnHidden
+        destroyOnClose
         extra={
           <Space>
             <Button onClick={() => setDrawerOpen(false)}>Cancel</Button>
-            <Button type="primary" onClick={() => form.submit()}>
+            <Button type="primary" onClick={() => form.submit()} loading={submitting}>
               Save
             </Button>
           </Space>
@@ -333,7 +330,21 @@ export default function AdminUsersPage() {
                 placeholder="Temporary password"
               />
             </Form.Item>
-          ) : null}
+          ) : (
+             <Form.Item
+              label="New password (leave blank to keep current)"
+              name="password"
+              rules={[
+                { min: 8, message: "Password must be at least 8 characters." },
+              ]}
+            >
+              <Input.Password
+                size="large"
+                prefix={<LockOutlined />}
+                placeholder="New password"
+              />
+            </Form.Item>
+          )}
 
           <Flex gap={16} className="listing-form-row">
             <Form.Item
@@ -347,7 +358,7 @@ export default function AdminUsersPage() {
 
             <Form.Item
               label="Account status"
-              name="active"
+              name="isActive"
               valuePropName="checked"
               className="listing-form-field"
             >

@@ -1,73 +1,44 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { apiClient } from "@/lib/api";
-
-export type Design = {
-  _id: string;
-  title: string;
-  description: string;
-  price: number;
-  images: string[];
-  floorPlan: string;
-  descriptionMarkdown?: string;
-  media?: Array<{
-    type: "image" | "video";
-    url: string;
-    thumbnail?: string;
-    title?: string;
-  }>;
-  createdAt: string;
-  updatedAt: string;
-};
+import { useDashboardContext, type Design } from "@/context/dashboard-context";
 
 export function useDesigns() {
-  const [designs, setDesigns] = useState<Design[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
-
-  const fetchDesigns = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await apiClient.get<Design[]>("/admin/designs");
-      setDesigns(response.data);
-      setIsError(false);
-    } catch (error) {
-      console.error("Fetch designs error:", error);
-      setIsError(true);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const { designs, isLoadingDesigns, fetchDesigns } = useDashboardContext();
+  const initialFetchDone = useRef(false);
 
   useEffect(() => {
-    fetchDesigns();
-  }, [fetchDesigns]);
+    if (!initialFetchDone.current) {
+      const isInitial = designs.length === 0;
+      fetchDesigns(!isInitial);
+      initialFetchDone.current = true;
+    }
+  }, [fetchDesigns, designs.length]);
 
   const createDesign = async (data: Partial<Design>) => {
     const response = await apiClient.post<Design>("/admin/designs", data);
-    await fetchDesigns();
+    await fetchDesigns(true); // background refresh
     return response.data;
   };
 
   const updateDesign = async ({ id, data }: { id: string; data: Partial<Design> }) => {
     const response = await apiClient.put<Design>(`/admin/designs/${id}`, data);
-    await fetchDesigns();
+    await fetchDesigns(true); // background refresh
     return response.data;
   };
 
   const deleteDesign = async (id: string) => {
     await apiClient.delete(`/admin/designs/${id}`);
-    await fetchDesigns();
+    await fetchDesigns(true); // background refresh
   };
 
   return {
     designs,
-    isLoading,
-    isError,
+    isLoading: isLoadingDesigns,
     createDesign,
     updateDesign,
     deleteDesign,
-    refresh: fetchDesigns
+    refresh: () => fetchDesigns(false)
   };
 }
