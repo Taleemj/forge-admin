@@ -9,7 +9,7 @@ export default function DesignListingsPage() {
   return (
     <ListingManager
       kind="design"
-      listings={designs as any}
+      listings={designs}
       isLoading={isLoading}
       onCreate={createDesign}
       onUpdate={(id, data) => updateDesign({ id, data })}

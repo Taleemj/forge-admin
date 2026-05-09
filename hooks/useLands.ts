@@ -16,14 +16,18 @@ export function useLands() {
     }
   }, [fetchLands, lands.length]);
 
-  const createLand = async (data: Partial<Land>) => {
-    const response = await apiClient.post<Land>("/admin/lands", data);
+  const createLand = async (data: FormData) => {
+    const response = await apiClient.post<Land>("/admin/lands", data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     await fetchLands(true); // background refresh after action
     return response.data;
   };
 
-  const updateLand = async ({ id, data }: { id: string; data: Partial<Land> }) => {
-    const response = await apiClient.put<Land>(`/admin/lands/${id}`, data);
+  const updateLand = async ({ id, data }: { id: string; data: FormData }) => {
+    const response = await apiClient.put<Land>(`/admin/lands/${id}`, data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     await fetchLands(true); // background refresh after action
     return response.data;
   };

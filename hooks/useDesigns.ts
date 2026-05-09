@@ -16,14 +16,18 @@ export function useDesigns() {
     }
   }, [fetchDesigns, designs.length]);
 
-  const createDesign = async (data: Partial<Design>) => {
-    const response = await apiClient.post<Design>("/admin/designs", data);
+  const createDesign = async (data: FormData) => {
+    const response = await apiClient.post<Design>("/admin/designs", data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     await fetchDesigns(true); // background refresh
     return response.data;
   };
 
-  const updateDesign = async ({ id, data }: { id: string; data: Partial<Design> }) => {
-    const response = await apiClient.put<Design>(`/admin/designs/${id}`, data);
+  const updateDesign = async ({ id, data }: { id: string; data: FormData }) => {
+    const response = await apiClient.put<Design>(`/admin/designs/${id}`, data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     await fetchDesigns(true); // background refresh
     return response.data;
   };

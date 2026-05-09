@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  CopyOutlined,
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
@@ -58,6 +57,7 @@ export type AdminListing = {
   description?: string;
   floorPlan?: string;
   media?: Array<{
+    id?: string;
     type: "image" | "video";
     url: string;
     thumbnail?: string;
@@ -67,6 +67,7 @@ export type AdminListing = {
 
 type ListingFormValues = Omit<AdminListing, "_id" | "images"> & {
   imageUploads?: UploadFile[];
+  videoUploads?: UploadFile[];
   floorPlanUpload?: UploadFile[];
   latitude?: number;
   longitude?: number;
@@ -76,9 +77,9 @@ interface ListingManagerProps {
   kind: ListingKind;
   listings: AdminListing[];
   isLoading: boolean;
-  onCreate: (data: Partial<AdminListing>) => Promise<any>;
-  onUpdate: (id: string, data: Partial<AdminListing>) => Promise<any>;
-  onDelete: (id: string) => Promise<any>;
+  onCreate: (data: FormData) => Promise<unknown>;
+  onUpdate: (id: string, data: FormData) => Promise<unknown>;
+  onDelete: (id: string) => Promise<unknown>;
 }
 
 function uploadValueFromEvent(event: { fileList?: UploadFile[] } | UploadFile[]) {
@@ -98,6 +99,7 @@ export function ListingManager({
   const [editing, setEditing] = useState<AdminListing | null>(null);
   const [previewing, setPreviewing] = useState<AdminListing | null>(null);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
+  const [removedMediaUrls, setRemovedMediaUrls] = useState<string[]>([]);
   const [removeFloorPlan, setRemoveFloorPlan] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -117,6 +119,7 @@ export function ListingManager({
   const openCreate = () => {
     setEditing(null);
     setRemovedImages([]);
+    setRemovedMediaUrls([]);
     setRemoveFloorPlan(false);
     form.resetFields();
     form.setFieldsValue({
@@ -132,7 +135,9 @@ export function ListingManager({
   const openEdit = (listing: AdminListing) => {
     setEditing(listing);
     setRemovedImages([]);
+    setRemovedMediaUrls([]);
     setRemoveFloorPlan(false);
+    form.resetFields();
     form.setFieldsValue({
       ...listing,
       latitude: listing.coordinates?.latitude,
@@ -141,34 +146,69 @@ export function ListingManager({
     setDrawerOpen(true);
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: ListingFormValues) => {
     setSubmitting(true);
     try {
       const keptImages =
         editing?.images.filter((image) => !removedImages.includes(image)) ?? [];
-      
-      const newImagesList = values.newImages
-        ? values.newImages.split(",").map((s: string) => s.trim()).filter(Boolean)
-        : [];
+      const retainedMedia =
+        editing?.media?.length
+          ? editing.media.filter(
+              (item) =>
+                !removedMediaUrls.includes(item.url) &&
+                !removedImages.includes(item.url) &&
+                !(removeFloorPlan && item.url === editing.floorPlan),
+            )
+          : [
+              ...keptImages.map((image, index) => ({
+                id: `${editing?._id}-image-${index}`,
+                type: "image" as const,
+                url: image,
+                thumbnail: image,
+                title: `${editing?.title} image ${index + 1}`,
+              })),
+              ...(editing?.floorPlan && !removeFloorPlan
+                ? [
+                    {
+                      id: `${editing._id}-floor-plan`,
+                      type: "image" as const,
+                      url: editing.floorPlan,
+                      thumbnail: editing.floorPlan,
+                      title: `${editing.title} floor plan`,
+                    },
+                  ]
+                : []),
+            ];
 
-      const payload: Partial<AdminListing> = {
-        title: values.title,
-        price: Number(values.price ?? 0),
-        images: [...keptImages, ...newImagesList],
-        descriptionMarkdown: values.descriptionMarkdown,
-        status: kind === "land" ? values.status : undefined,
-        location: values.location,
-        size: values.size,
-        description: values.description,
-        floorPlan: removeFloorPlan ? undefined : (values.floorPlan || editing?.floorPlan),
-        coordinates:
-          values.latitude !== undefined && values.longitude !== undefined
-            ? {
-                latitude: Number(values.latitude),
-                longitude: Number(values.longitude),
-              }
-            : undefined,
-      };
+      const payload = new FormData();
+      payload.append("title", values.title ?? "");
+      payload.append("price", String(values.price ?? 0));
+      payload.append("descriptionMarkdown", values.descriptionMarkdown ?? "");
+      payload.append("retainedImages", JSON.stringify(keptImages));
+      payload.append("retainedMedia", JSON.stringify(retainedMedia));
+
+      if (kind === "land") {
+        payload.append("status", values.status ?? "available");
+        payload.append("location", values.location ?? "");
+        payload.append("size", values.size ?? "");
+        if (values.latitude !== undefined) payload.append("latitude", String(values.latitude));
+        if (values.longitude !== undefined) payload.append("longitude", String(values.longitude));
+      } else {
+        payload.append("description", values.description ?? "");
+        payload.append("removeFloorPlan", String(removeFloorPlan));
+      }
+
+      values.imageUploads?.forEach((file) => {
+        if (file.originFileObj) payload.append("images", file.originFileObj);
+      });
+
+      values.videoUploads?.forEach((file) => {
+        if (file.originFileObj) payload.append("mediaVideos", file.originFileObj);
+      });
+
+      values.floorPlanUpload?.forEach((file) => {
+        if (file.originFileObj) payload.append("floorPlan", file.originFileObj);
+      });
 
       if (editing) {
         await onUpdate(editing._id, payload);
@@ -190,7 +230,7 @@ export function ListingManager({
     try {
       await onDelete(id);
       message.success("Listing deleted");
-    } catch (error) {
+    } catch {
       message.error("Failed to delete listing");
     }
   };
@@ -387,8 +427,25 @@ export function ListingManager({
                   />
                 </Card>
               ) : (
-                <Form.Item label="Floor Plan URL" name="floorPlan">
-                  <Input placeholder="https://..." />
+                <Form.Item
+                  label="Upload Floor Plan"
+                  name="floorPlanUpload"
+                  valuePropName="fileList"
+                  getValueFromEvent={uploadValueFromEvent}
+                  rules={
+                    !editing || removeFloorPlan
+                      ? [{ required: true, message: "Upload a floor plan image." }]
+                      : []
+                  }
+                >
+                  <Upload
+                    accept="image/*"
+                    beforeUpload={() => false}
+                    maxCount={1}
+                    listType="picture"
+                  >
+                    <Button icon={<UploadOutlined />}>Choose Floor Plan</Button>
+                  </Upload>
                 </Form.Item>
               )}
             </>
@@ -430,8 +487,71 @@ export function ListingManager({
             </Card>
           ) : null}
 
-          <Form.Item label="Add Image URL (Comma separated)" name="newImages">
-             <Input placeholder="https://image1.com, https://image2.com" />
+          {editing?.media?.some(
+            (item) =>
+              item.type === "video" &&
+              !removedMediaUrls.includes(item.url),
+          ) ? (
+            <Card size="small" className="stored-media-card">
+              <Space direction="vertical" size={12} className="full-width">
+                <Text strong>Stored videos</Text>
+                <Space direction="vertical" size={8} className="full-width">
+                  {editing.media
+                    .filter(
+                      (item) =>
+                        item.type === "video" &&
+                        !removedMediaUrls.includes(item.url),
+                    )
+                    .map((item) => (
+                      <Flex key={item.url} align="center" justify="space-between">
+                        <Text ellipsis>{item.title || item.url}</Text>
+                        <Button
+                          danger
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          onClick={() =>
+                            setRemovedMediaUrls((current) => [...current, item.url])
+                          }
+                        >
+                          Remove
+                        </Button>
+                      </Flex>
+                    ))}
+                </Space>
+              </Space>
+            </Card>
+          ) : null}
+
+          <Form.Item
+            label="Upload Images"
+            name="imageUploads"
+            valuePropName="fileList"
+            getValueFromEvent={uploadValueFromEvent}
+            rules={
+              editing
+                ? []
+                : [{ required: true, message: "Upload at least one image." }]
+            }
+          >
+            <Upload
+              accept="image/*"
+              beforeUpload={() => false}
+              multiple
+              listType="picture"
+            >
+              <Button icon={<UploadOutlined />}>Choose Images</Button>
+            </Upload>
+          </Form.Item>
+
+          <Form.Item
+            label="Upload Videos"
+            name="videoUploads"
+            valuePropName="fileList"
+            getValueFromEvent={uploadValueFromEvent}
+          >
+            <Upload accept="video/*" beforeUpload={() => false} multiple>
+              <Button icon={<UploadOutlined />}>Choose Videos</Button>
+            </Upload>
           </Form.Item>
 
           <Form.Item label="Markdown Description" name="descriptionMarkdown">

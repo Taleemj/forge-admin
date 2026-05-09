@@ -19,6 +19,7 @@ export type Land = {
     longitude: number;
   };
   media?: Array<{
+    id?: string;
     type: "image" | "video";
     url: string;
     thumbnail?: string;
@@ -37,6 +38,7 @@ export type Design = {
   floorPlan: string;
   descriptionMarkdown?: string;
   media?: Array<{
+    id?: string;
     type: "image" | "video";
     url: string;
     thumbnail?: string;
