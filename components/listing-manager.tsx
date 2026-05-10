@@ -33,6 +33,7 @@ import { useMemo, useState } from "react";
 
 import { AdminShell } from "@/components/admin-shell";
 import { MarkdownEditor, MarkdownPreview } from "@/components/markdown-editor";
+import type { DesignRequest } from "@/context/dashboard-context";
 
 const { Text, Title } = Typography;
 
@@ -76,10 +77,16 @@ type ListingFormValues = Omit<AdminListing, "_id" | "images"> & {
 interface ListingManagerProps {
   kind: ListingKind;
   listings: AdminListing[];
+  designRequests?: DesignRequest[];
   isLoading: boolean;
   onCreate: (data: FormData) => Promise<unknown>;
   onUpdate: (id: string, data: FormData) => Promise<unknown>;
   onDelete: (id: string) => Promise<unknown>;
+  onUpdateDesignRequest?: (data: {
+    id: string;
+    status: DesignRequest["status"];
+    adminNotes?: string;
+  }) => Promise<unknown>;
 }
 
 function uploadValueFromEvent(event: { fileList?: UploadFile[] } | UploadFile[]) {
@@ -89,19 +96,27 @@ function uploadValueFromEvent(event: { fileList?: UploadFile[] } | UploadFile[])
 export function ListingManager({
   kind,
   listings,
+  designRequests = [],
   isLoading,
   onCreate,
   onUpdate,
   onDelete,
+  onUpdateDesignRequest,
 }: ListingManagerProps) {
   const [form] = Form.useForm<ListingFormValues>();
+  const [requestForm] = Form.useForm<{
+    status: DesignRequest["status"];
+    adminNotes?: string;
+  }>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<AdminListing | null>(null);
   const [previewing, setPreviewing] = useState<AdminListing | null>(null);
+  const [editingRequest, setEditingRequest] = useState<DesignRequest | null>(null);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [removedMediaUrls, setRemovedMediaUrls] = useState<string[]>([]);
   const [removeFloorPlan, setRemoveFloorPlan] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
 
   const copy = useMemo(() => {
     const isLand = kind === "land";
@@ -235,6 +250,32 @@ export function ListingManager({
     }
   };
 
+  const openRequest = (request: DesignRequest) => {
+    setEditingRequest(request);
+    requestForm.resetFields();
+    requestForm.setFieldsValue({
+      status: request.status,
+      adminNotes: request.adminNotes,
+    });
+  };
+
+  const handleRequestSubmit = async (values: {
+    status: DesignRequest["status"];
+    adminNotes?: string;
+  }) => {
+    if (!editingRequest || !onUpdateDesignRequest) return;
+    setRequestSubmitting(true);
+    try {
+      await onUpdateDesignRequest({ id: editingRequest._id, ...values });
+      message.success("Design request updated");
+      setEditingRequest(null);
+    } catch {
+      message.error("Failed to update design request");
+    } finally {
+      setRequestSubmitting(false);
+    }
+  };
+
   const columns: ColumnsType<AdminListing> = [
     {
       title: "Listing",
@@ -308,6 +349,44 @@ export function ListingManager({
     },
   ];
 
+  const designRequestColumns: ColumnsType<DesignRequest> = [
+    {
+      title: "Request",
+      key: "request",
+      render: (_, request) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>
+            {typeof request.design === "string" ? "Design" : request.design.title}
+          </Text>
+          <Text type="secondary">
+            {typeof request.user === "string" ? "Client" : request.user.name}
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (status: DesignRequest["status"]) => <Tag>{status}</Tag>,
+    },
+    {
+      title: "Notes",
+      key: "notes",
+      render: (_, request) => request.notes || "No client notes",
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      width: 140,
+      render: (_, request) => (
+        <Button icon={<EditOutlined />} onClick={() => openRequest(request)}>
+          Update
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <AdminShell>
       <section className="dashboard-hero listing-hero">
@@ -333,6 +412,19 @@ export function ListingManager({
           scroll={{ x: 920 }}
         />
       </Card>
+
+      {kind === "design" ? (
+        <Card title="Design Interest Requests" className="dashboard-card listing-card dashboard-grid">
+          <Table
+            columns={designRequestColumns}
+            dataSource={designRequests}
+            rowKey="_id"
+            loading={isLoading}
+            pagination={{ pageSize: 6 }}
+            scroll={{ x: 760 }}
+          />
+        </Card>
+      ) : null}
 
       <Drawer
         title={editing ? `Edit ${editing.title}` : copy.createLabel}
@@ -622,6 +714,63 @@ export function ListingManager({
           </Space>
         ) : null}
       </Modal>
+
+      <Drawer
+        title="Update Design Request"
+        open={Boolean(editingRequest)}
+        onClose={() => setEditingRequest(null)}
+        width={560}
+        destroyOnClose
+        extra={
+          <Space>
+            <Button onClick={() => setEditingRequest(null)}>Cancel</Button>
+            <Button
+              type="primary"
+              onClick={() => requestForm.submit()}
+              loading={requestSubmitting}
+            >
+              Save
+            </Button>
+          </Space>
+        }
+      >
+        {editingRequest ? (
+          <Space direction="vertical" size={16} className="full-width">
+            <Descriptions bordered size="small" column={1}>
+              <Descriptions.Item label="Client">
+                {typeof editingRequest.user === "string"
+                  ? "Client"
+                  : editingRequest.user.name}
+              </Descriptions.Item>
+              <Descriptions.Item label="Design">
+                {typeof editingRequest.design === "string"
+                  ? "Design"
+                  : editingRequest.design.title}
+              </Descriptions.Item>
+              <Descriptions.Item label="Client Notes">
+                {editingRequest.notes || "No notes provided"}
+              </Descriptions.Item>
+            </Descriptions>
+
+            <Form form={requestForm} layout="vertical" onFinish={handleRequestSubmit}>
+              <Form.Item label="Status" name="status" rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { value: "requested", label: "Requested" },
+                    { value: "contacted", label: "Contacted" },
+                    { value: "in_discussion", label: "In Discussion" },
+                    { value: "confirmed", label: "Confirmed" },
+                    { value: "rejected", label: "Rejected" },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item label="Admin Notes" name="adminNotes">
+                <Input.TextArea rows={4} />
+              </Form.Item>
+            </Form>
+          </Space>
+        ) : null}
+      </Drawer>
     </AdminShell>
   );
 }

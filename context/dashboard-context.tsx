@@ -48,6 +48,30 @@ export type Design = {
   updatedAt: string;
 };
 
+export type DesignRequest = {
+  _id: string;
+  user:
+    | string
+    | {
+        _id: string;
+        name: string;
+        email: string;
+        phone?: string;
+      };
+  design:
+    | string
+    | {
+        _id: string;
+        title: string;
+        price: number;
+      };
+  status: "requested" | "contacted" | "in_discussion" | "confirmed" | "rejected";
+  notes?: string;
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ManagementService = {
   _id: string;
   title: string;
@@ -176,6 +200,7 @@ export type Project = {
 interface DashboardContextType {
   lands: Land[];
   designs: Design[];
+  designRequests: DesignRequest[];
   managementServices: ManagementService[];
   maintenanceRequests: MaintenanceRequest[];
   projects: Project[];
@@ -183,6 +208,7 @@ interface DashboardContextType {
   users: AdminUser[];
   isLoadingLands: boolean;
   isLoadingDesigns: boolean;
+  isLoadingDesignRequests: boolean;
   isLoadingManagementServices: boolean;
   isLoadingMaintenanceRequests: boolean;
   isLoadingProjects: boolean;
@@ -190,6 +216,7 @@ interface DashboardContextType {
   isLoadingUsers: boolean;
   fetchLands: (background?: boolean) => Promise<void>;
   fetchDesigns: (background?: boolean) => Promise<void>;
+  fetchDesignRequests: (background?: boolean) => Promise<void>;
   fetchManagementServices: (background?: boolean) => Promise<void>;
   fetchMaintenanceRequests: (background?: boolean) => Promise<void>;
   fetchProjects: (background?: boolean) => Promise<void>;
@@ -197,6 +224,7 @@ interface DashboardContextType {
   fetchUsers: (background?: boolean) => Promise<void>;
   setLands: React.Dispatch<React.SetStateAction<Land[]>>;
   setDesigns: React.Dispatch<React.SetStateAction<Design[]>>;
+  setDesignRequests: React.Dispatch<React.SetStateAction<DesignRequest[]>>;
   setManagementServices: React.Dispatch<React.SetStateAction<ManagementService[]>>;
   setMaintenanceRequests: React.Dispatch<React.SetStateAction<MaintenanceRequest[]>>;
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
@@ -209,6 +237,7 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [lands, setLands] = useState<Land[]>([]);
   const [designs, setDesigns] = useState<Design[]>([]);
+  const [designRequests, setDesignRequests] = useState<DesignRequest[]>([]);
   const [managementServices, setManagementServices] = useState<ManagementService[]>([]);
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -217,6 +246,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const [isLoadingLands, setIsLoadingLands] = useState(false);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
+  const [isLoadingDesignRequests, setIsLoadingDesignRequests] = useState(false);
   const [isLoadingManagementServices, setIsLoadingManagementServices] = useState(false);
   const [isLoadingMaintenanceRequests, setIsLoadingMaintenanceRequests] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
@@ -244,6 +274,18 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       console.error("Fetch designs error:", error);
     } finally {
       if (!background) setIsLoadingDesigns(false);
+    }
+  }, []);
+
+  const fetchDesignRequests = useCallback(async (background = false) => {
+    if (!background) setIsLoadingDesignRequests(true);
+    try {
+      const response = await apiClient.get<DesignRequest[]>("/admin/design-requests");
+      setDesignRequests(response.data);
+    } catch (error) {
+      console.error("Fetch design requests error:", error);
+    } finally {
+      if (!background) setIsLoadingDesignRequests(false);
     }
   }, []);
 
@@ -314,6 +356,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       value={{
         lands,
         designs,
+        designRequests,
         managementServices,
         maintenanceRequests,
         projects,
@@ -321,6 +364,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         users,
         isLoadingLands,
         isLoadingDesigns,
+        isLoadingDesignRequests,
         isLoadingManagementServices,
         isLoadingMaintenanceRequests,
         isLoadingProjects,
@@ -328,6 +372,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         isLoadingUsers,
         fetchLands,
         fetchDesigns,
+        fetchDesignRequests,
         fetchManagementServices,
         fetchMaintenanceRequests,
         fetchProjects,
@@ -335,6 +380,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         fetchUsers,
         setLands,
         setDesigns,
+        setDesignRequests,
         setManagementServices,
         setMaintenanceRequests,
         setProjects,
