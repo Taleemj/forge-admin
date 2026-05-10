@@ -3,6 +3,7 @@
 import {
   ApartmentOutlined,
   BellOutlined,
+  HomeOutlined,
   BuildOutlined,
   CreditCardOutlined,
   DashboardOutlined,
@@ -14,6 +15,7 @@ export type AdminModuleKey =
   | "dashboard"
   | "lands"
   | "designs"
+  | "management_services"
   | "projects"
   | "payments"
   | "users"
@@ -44,6 +46,12 @@ export const adminModules: AdminModule[] = [
     label: "House Designs",
     href: "/dashboard/designs",
     icon: <ApartmentOutlined />,
+  },
+  {
+    key: "management_services",
+    label: "Property Services",
+    href: "/dashboard/management-services",
+    icon: <HomeOutlined />,
   },
   {
     key: "projects",

@@ -42,10 +42,14 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function getStoredToken() {
+  return typeof window !== "undefined" ? window.localStorage.getItem(AUTH_TOKEN_KEY) : null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(getStoredToken);
+  const [isLoading, setIsLoading] = useState(() => Boolean(getStoredToken()));
   const [error, setError] = useState<string | null>(null);
 
   const signOut = useCallback(() => {
@@ -66,21 +70,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [signOut]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    const storedToken =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem(AUTH_TOKEN_KEY)
-        : null;
-
-    setToken(storedToken);
-
-    if (!storedToken) {
-      setIsLoading(false);
+    if (!token) {
       return;
     }
 
     refreshUser().finally(() => setIsLoading(false));
-  }, [refreshUser]);
+  }, [refreshUser, token]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     const handleExpired = () => signOut();

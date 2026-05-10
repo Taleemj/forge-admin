@@ -36,14 +36,15 @@ import {
 } from "@/components/admin-navigation";
 import { AdminShell } from "@/components/admin-shell";
 import { useAdminUsers } from "@/hooks/useAdminUsers";
-import type { AdminUser } from "@/types/auth";
+import { getApiErrorMessage } from "@/lib/api";
+import type { AdminRole, AdminUser } from "@/types/auth";
 
 const { Text, Title } = Typography;
 
 type UserFormValues = {
   name: string;
   email: string;
-  role: "super_admin" | "admin" | "manager" | "viewer";
+  role: AdminRole;
   isActive: boolean;
   modules: AdminModuleKey[];
   password?: string;
@@ -88,7 +89,7 @@ export default function AdminUsersPage() {
     form.setFieldsValue({
       name: user.name,
       email: user.email,
-      role: user.role as any,
+      role: user.role,
       isActive: user.isActive,
       modules: user.modules as AdminModuleKey[],
     });
@@ -99,15 +100,15 @@ export default function AdminUsersPage() {
     setSubmitting(true);
     try {
       if (editing) {
-        await updateUser({ id: editing.id, payload: values as any });
+        await updateUser({ id: editing.id, payload: values });
         message.success("User updated successfully");
       } else {
-        await createUser(values as any);
+        await createUser(values);
         message.success("User created successfully");
       }
       setDrawerOpen(false);
-    } catch (error: any) {
-      message.error(error?.response?.data?.message || "Failed to save user");
+    } catch (error: unknown) {
+      message.error(getApiErrorMessage(error) || "Failed to save user");
     } finally {
       setSubmitting(false);
     }
@@ -117,8 +118,8 @@ export default function AdminUsersPage() {
     try {
       await deleteUser(id);
       message.success("User deleted successfully");
-    } catch (error: any) {
-      message.error(error?.response?.data?.message || "Failed to delete user");
+    } catch (error: unknown) {
+      message.error(getApiErrorMessage(error) || "Failed to delete user");
     }
   };
 
@@ -129,25 +130,25 @@ export default function AdminUsersPage() {
         payload: {
           name: user.name,
           email: user.email,
-          role: user.role as any,
+          role: user.role,
           isActive: checked,
           modules: user.modules as AdminModuleKey[],
         },
       });
       message.success(`User ${checked ? "activated" : "deactivated"}`);
-    } catch (error: any) {
+    } catch {
       message.error("Failed to update status");
     }
   };
 
-  const moduleOptions = adminModules.map((module) => ({
+  const moduleOptions = adminModules.map((adminModule) => ({
     label: (
       <span className="access-module-option">
-        <span className="access-module-icon">{module.icon}</span>
-        <span>{module.label}</span>
+        <span className="access-module-icon">{adminModule.icon}</span>
+        <span>{adminModule.label}</span>
       </span>
     ),
-    value: module.key,
+    value: adminModule.key,
   }));
 
   const columns: ColumnsType<AdminUser> = [
@@ -181,8 +182,10 @@ export default function AdminUsersPage() {
       render: (_, user) => (
         <Flex gap={6} wrap="wrap">
           {user.modules.map((moduleKey) => {
-            const module = adminModules.find((item) => item.key === moduleKey);
-            return module ? <Tag key={module.key}>{module.label}</Tag> : null;
+            const adminModule = adminModules.find((item) => item.key === moduleKey);
+            return adminModule ? (
+              <Tag key={adminModule.key}>{adminModule.label}</Tag>
+            ) : null;
           })}
         </Flex>
       ),

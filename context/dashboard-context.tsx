@@ -48,18 +48,44 @@ export type Design = {
   updatedAt: string;
 };
 
+export type ManagementService = {
+  _id: string;
+  title: string;
+  description: string;
+  helpText: string;
+  price: number;
+  billingPeriod: "once" | "month" | "quarter" | "year";
+  category?: string;
+  status: "active" | "draft" | "archived";
+  images: string[];
+  descriptionMarkdown?: string;
+  media?: Array<{
+    id?: string;
+    type: "image" | "video";
+    url: string;
+    thumbnail?: string;
+    title?: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 interface DashboardContextType {
   lands: Land[];
   designs: Design[];
+  managementServices: ManagementService[];
   users: AdminUser[];
   isLoadingLands: boolean;
   isLoadingDesigns: boolean;
+  isLoadingManagementServices: boolean;
   isLoadingUsers: boolean;
   fetchLands: (background?: boolean) => Promise<void>;
   fetchDesigns: (background?: boolean) => Promise<void>;
+  fetchManagementServices: (background?: boolean) => Promise<void>;
   fetchUsers: (background?: boolean) => Promise<void>;
   setLands: React.Dispatch<React.SetStateAction<Land[]>>;
   setDesigns: React.Dispatch<React.SetStateAction<Design[]>>;
+  setManagementServices: React.Dispatch<React.SetStateAction<ManagementService[]>>;
   setUsers: React.Dispatch<React.SetStateAction<AdminUser[]>>;
 }
 
@@ -68,10 +94,12 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [lands, setLands] = useState<Land[]>([]);
   const [designs, setDesigns] = useState<Design[]>([]);
+  const [managementServices, setManagementServices] = useState<ManagementService[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
 
   const [isLoadingLands, setIsLoadingLands] = useState(false);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
+  const [isLoadingManagementServices, setIsLoadingManagementServices] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   const fetchLands = useCallback(async (background = false) => {
@@ -98,6 +126,18 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const fetchManagementServices = useCallback(async (background = false) => {
+    if (!background) setIsLoadingManagementServices(true);
+    try {
+      const response = await apiClient.get<ManagementService[]>("/admin/management-services");
+      setManagementServices(response.data);
+    } catch (error) {
+      console.error("Fetch management services error:", error);
+    } finally {
+      if (!background) setIsLoadingManagementServices(false);
+    }
+  }, []);
+
   const fetchUsers = useCallback(async (background = false) => {
     if (!background) setIsLoadingUsers(true);
     try {
@@ -115,15 +155,19 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       value={{
         lands,
         designs,
+        managementServices,
         users,
         isLoadingLands,
         isLoadingDesigns,
+        isLoadingManagementServices,
         isLoadingUsers,
         fetchLands,
         fetchDesigns,
+        fetchManagementServices,
         fetchUsers,
         setLands,
         setDesigns,
+        setManagementServices,
         setUsers,
       }}
     >
