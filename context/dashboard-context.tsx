@@ -70,6 +70,43 @@ export type ManagementService = {
   updatedAt: string;
 };
 
+export type MaintenanceRequest = {
+  _id: string;
+  user:
+    | string
+    | {
+        _id: string;
+        name: string;
+        email: string;
+        phone?: string;
+      };
+  service:
+    | string
+    | {
+        _id: string;
+        title: string;
+        category?: string;
+        price: number;
+        billingPeriod: "once" | "month" | "quarter" | "year";
+      };
+  status: "requested" | "quoted" | "accepted" | "rejected" | "scheduled" | "completed";
+  location: {
+    label?: string;
+    latitude?: number;
+    longitude?: number;
+    pinX?: number;
+    pinY?: number;
+  };
+  propertyNotes?: string;
+  quote?: {
+    amount?: number;
+    notes?: string;
+    quotedAt?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ProjectClient = {
   _id: string;
   name: string;
@@ -140,24 +177,28 @@ interface DashboardContextType {
   lands: Land[];
   designs: Design[];
   managementServices: ManagementService[];
+  maintenanceRequests: MaintenanceRequest[];
   projects: Project[];
   projectClients: ProjectClient[];
   users: AdminUser[];
   isLoadingLands: boolean;
   isLoadingDesigns: boolean;
   isLoadingManagementServices: boolean;
+  isLoadingMaintenanceRequests: boolean;
   isLoadingProjects: boolean;
   isLoadingProjectClients: boolean;
   isLoadingUsers: boolean;
   fetchLands: (background?: boolean) => Promise<void>;
   fetchDesigns: (background?: boolean) => Promise<void>;
   fetchManagementServices: (background?: boolean) => Promise<void>;
+  fetchMaintenanceRequests: (background?: boolean) => Promise<void>;
   fetchProjects: (background?: boolean) => Promise<void>;
   fetchProjectClients: (background?: boolean) => Promise<void>;
   fetchUsers: (background?: boolean) => Promise<void>;
   setLands: React.Dispatch<React.SetStateAction<Land[]>>;
   setDesigns: React.Dispatch<React.SetStateAction<Design[]>>;
   setManagementServices: React.Dispatch<React.SetStateAction<ManagementService[]>>;
+  setMaintenanceRequests: React.Dispatch<React.SetStateAction<MaintenanceRequest[]>>;
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   setProjectClients: React.Dispatch<React.SetStateAction<ProjectClient[]>>;
   setUsers: React.Dispatch<React.SetStateAction<AdminUser[]>>;
@@ -169,6 +210,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [lands, setLands] = useState<Land[]>([]);
   const [designs, setDesigns] = useState<Design[]>([]);
   const [managementServices, setManagementServices] = useState<ManagementService[]>([]);
+  const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectClients, setProjectClients] = useState<ProjectClient[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -176,6 +218,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [isLoadingLands, setIsLoadingLands] = useState(false);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
   const [isLoadingManagementServices, setIsLoadingManagementServices] = useState(false);
+  const [isLoadingMaintenanceRequests, setIsLoadingMaintenanceRequests] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isLoadingProjectClients, setIsLoadingProjectClients] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
@@ -213,6 +256,20 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       console.error("Fetch management services error:", error);
     } finally {
       if (!background) setIsLoadingManagementServices(false);
+    }
+  }, []);
+
+  const fetchMaintenanceRequests = useCallback(async (background = false) => {
+    if (!background) setIsLoadingMaintenanceRequests(true);
+    try {
+      const response = await apiClient.get<MaintenanceRequest[]>(
+        "/admin/maintenance-requests",
+      );
+      setMaintenanceRequests(response.data);
+    } catch (error) {
+      console.error("Fetch maintenance requests error:", error);
+    } finally {
+      if (!background) setIsLoadingMaintenanceRequests(false);
     }
   }, []);
 
@@ -258,24 +315,28 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         lands,
         designs,
         managementServices,
+        maintenanceRequests,
         projects,
         projectClients,
         users,
         isLoadingLands,
         isLoadingDesigns,
         isLoadingManagementServices,
+        isLoadingMaintenanceRequests,
         isLoadingProjects,
         isLoadingProjectClients,
         isLoadingUsers,
         fetchLands,
         fetchDesigns,
         fetchManagementServices,
+        fetchMaintenanceRequests,
         fetchProjects,
         fetchProjectClients,
         fetchUsers,
         setLands,
         setDesigns,
         setManagementServices,
+        setMaintenanceRequests,
         setProjects,
         setProjectClients,
         setUsers,

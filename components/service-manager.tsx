@@ -33,7 +33,10 @@ import { useMemo, useState } from "react";
 
 import { AdminShell } from "@/components/admin-shell";
 import { MarkdownEditor, MarkdownPreview } from "@/components/markdown-editor";
-import type { ManagementService } from "@/context/dashboard-context";
+import type {
+  MaintenanceRequest,
+  ManagementService,
+} from "@/context/dashboard-context";
 
 const { Text, Title } = Typography;
 const { TextArea } = Input;
@@ -51,10 +54,17 @@ type ServiceFormValues = Omit<
 
 interface ServiceManagerProps {
   services: ManagementService[];
+  requests: MaintenanceRequest[];
   isLoading: boolean;
   onCreate: (data: FormData) => Promise<unknown>;
   onUpdate: (id: string, data: FormData) => Promise<unknown>;
   onDelete: (id: string) => Promise<unknown>;
+  onQuoteRequest: (data: {
+    id: string;
+    amount: number;
+    notes?: string;
+    status?: MaintenanceRequest["status"];
+  }) => Promise<unknown>;
 }
 
 function uploadValueFromEvent(event: { fileList?: UploadFile[] } | UploadFile[]) {
@@ -73,18 +83,27 @@ function billingLabel(period: ManagementService["billingPeriod"]) {
 
 export function ServiceManager({
   services,
+  requests,
   isLoading,
   onCreate,
   onUpdate,
   onDelete,
+  onQuoteRequest,
 }: ServiceManagerProps) {
   const [form] = Form.useForm<ServiceFormValues>();
+  const [quoteForm] = Form.useForm<{
+    amount: number;
+    notes?: string;
+    status: MaintenanceRequest["status"];
+  }>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ManagementService | null>(null);
   const [previewing, setPreviewing] = useState<ManagementService | null>(null);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [removedMediaUrls, setRemovedMediaUrls] = useState<string[]>([]);
+  const [quoting, setQuoting] = useState<MaintenanceRequest | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [quoteSubmitting, setQuoteSubmitting] = useState(false);
 
   const summary = useMemo(() => {
     const active = services.filter((service) => service.status === "active").length;
@@ -93,8 +112,9 @@ export function ServiceManager({
         total + (service.media?.filter((item) => item.type === "video").length ?? 0),
       0,
     );
-    return { active, videos };
-  }, [services]);
+    const requested = requests.filter((request) => request.status === "requested").length;
+    return { active, videos, requested };
+  }, [requests, services]);
 
   const openCreate = () => {
     setEditing(null);
@@ -184,6 +204,34 @@ export function ServiceManager({
     }
   };
 
+  const openQuote = (request: MaintenanceRequest) => {
+    setQuoting(request);
+    quoteForm.resetFields();
+    quoteForm.setFieldsValue({
+      amount: request.quote?.amount,
+      notes: request.quote?.notes,
+      status: "quoted",
+    });
+  };
+
+  const handleQuoteSubmit = async (values: {
+    amount: number;
+    notes?: string;
+    status: MaintenanceRequest["status"];
+  }) => {
+    if (!quoting) return;
+    setQuoteSubmitting(true);
+    try {
+      await onQuoteRequest({ id: quoting._id, ...values });
+      message.success("Quote sent to client");
+      setQuoting(null);
+    } catch {
+      message.error("Failed to send quote");
+    } finally {
+      setQuoteSubmitting(false);
+    }
+  };
+
   const columns: ColumnsType<ManagementService> = [
     {
       title: "Service",
@@ -257,6 +305,58 @@ export function ServiceManager({
     },
   ];
 
+  const requestColumns: ColumnsType<MaintenanceRequest> = [
+    {
+      title: "Request",
+      key: "request",
+      render: (_, request) => {
+        const client =
+          typeof request.user === "string" ? "Client" : request.user.name;
+        const service =
+          typeof request.service === "string" ? "Service" : request.service.title;
+        return (
+          <Space direction="vertical" size={0}>
+            <Text strong>{service}</Text>
+            <Text type="secondary">{client}</Text>
+          </Space>
+        );
+      },
+    },
+    {
+      title: "Location",
+      key: "location",
+      render: (_, request) => request.location?.label || "Pinned location",
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (status: MaintenanceRequest["status"]) => (
+        <Tag color={status === "quoted" ? "success" : "processing"}>
+          {status}
+        </Tag>
+      ),
+    },
+    {
+      title: "Quote",
+      key: "quote",
+      render: (_, request) =>
+        request.quote?.amount
+          ? `Ugx ${request.quote.amount.toLocaleString()}`
+          : "Not quoted",
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      width: 140,
+      render: (_, request) => (
+        <Button icon={<EditOutlined />} onClick={() => openQuote(request)}>
+          Quote
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <AdminShell>
       <section className="dashboard-hero listing-hero">
@@ -294,6 +394,12 @@ export function ServiceManager({
             <Title level={3}>{summary.videos}</Title>
           </Space>
         </Card>
+        <Card className="metric-card access-summary-card">
+          <Space direction="vertical" size={2}>
+            <Text type="secondary">Quote Requests</Text>
+            <Title level={3}>{summary.requested}</Title>
+          </Space>
+        </Card>
       </Flex>
 
       <Card className="dashboard-card listing-card">
@@ -304,6 +410,17 @@ export function ServiceManager({
           loading={isLoading}
           pagination={{ pageSize: 8 }}
           scroll={{ x: 980 }}
+        />
+      </Card>
+
+      <Card title="Maintenance Quote Requests" className="dashboard-card listing-card dashboard-grid">
+        <Table
+          columns={requestColumns}
+          dataSource={requests}
+          rowKey="_id"
+          loading={isLoading}
+          pagination={{ pageSize: 6 }}
+          scroll={{ x: 760 }}
         />
       </Card>
 
@@ -555,6 +672,69 @@ export function ServiceManager({
           </Space>
         ) : null}
       </Modal>
+
+      <Drawer
+        title="Send Maintenance Quote"
+        open={Boolean(quoting)}
+        onClose={() => setQuoting(null)}
+        width={560}
+        destroyOnClose
+        extra={
+          <Space>
+            <Button onClick={() => setQuoting(null)}>Cancel</Button>
+            <Button
+              type="primary"
+              onClick={() => quoteForm.submit()}
+              loading={quoteSubmitting}
+            >
+              Send Quote
+            </Button>
+          </Space>
+        }
+      >
+        {quoting ? (
+          <Space direction="vertical" size={16} className="full-width">
+            <Descriptions bordered size="small" column={1}>
+              <Descriptions.Item label="Client">
+                {typeof quoting.user === "string" ? "Client" : quoting.user.name}
+              </Descriptions.Item>
+              <Descriptions.Item label="Service">
+                {typeof quoting.service === "string"
+                  ? "Service"
+                  : quoting.service.title}
+              </Descriptions.Item>
+              <Descriptions.Item label="Pinned Location">
+                {quoting.location?.label || "Pinned location"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Property Notes">
+                {quoting.propertyNotes || "No notes provided"}
+              </Descriptions.Item>
+            </Descriptions>
+
+            <Form form={quoteForm} layout="vertical" onFinish={handleQuoteSubmit}>
+              <Form.Item
+                label="Quote Amount"
+                name="amount"
+                rules={[{ required: true, message: "Add quote amount." }]}
+              >
+                <InputNumber min={0} prefix="Ugx " className="full-width" />
+              </Form.Item>
+              <Form.Item label="Quote Notes" name="notes">
+                <TextArea rows={4} />
+              </Form.Item>
+              <Form.Item label="Status" name="status">
+                <Select
+                  options={[
+                    { value: "quoted", label: "Quoted" },
+                    { value: "scheduled", label: "Scheduled" },
+                    { value: "rejected", label: "Rejected" },
+                  ]}
+                />
+              </Form.Item>
+            </Form>
+          </Space>
+        ) : null}
+      </Drawer>
     </AdminShell>
   );
 }
