@@ -49,7 +49,7 @@ export const adminModules: AdminModule[] = [
   },
   {
     key: "management_services",
-    label: "Property Services",
+    label: "Maintenance Services",
     href: "/dashboard/management-services",
     icon: <HomeOutlined />,
   },

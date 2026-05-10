@@ -70,22 +70,96 @@ export type ManagementService = {
   updatedAt: string;
 };
 
+export type ProjectClient = {
+  _id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  avatar?: string;
+};
+
+export type ProjectInstallment = {
+  _id?: string;
+  title: string;
+  description?: string;
+  amount: number;
+  dueAtProgress: number;
+  dueDate?: string;
+  status: "pending" | "due" | "paid" | "overdue";
+};
+
+export type ProjectMilestone = {
+  _id?: string;
+  title: string;
+  description?: string;
+  targetProgress: number;
+  status: "pending" | "in_progress" | "completed";
+  completedAt?: string;
+  updates?: Array<{
+    title: string;
+    description: string;
+    date: string;
+    image?: string;
+    media?: Array<{
+      id?: string;
+      type: "image" | "video";
+      url: string;
+      thumbnail?: string;
+      title?: string;
+    }>;
+  }>;
+};
+
+export type Project = {
+  _id: string;
+  title: string;
+  type: "construction" | "design" | "management";
+  status:
+    | "planning"
+    | "construction"
+    | "completed"
+    | "pending"
+    | "initialized"
+    | "waiting_for_payment";
+  progress: number;
+  stage: string;
+  client: ProjectClient | string;
+  landId?: Land | string;
+  designId?: Design | string;
+  budget: {
+    total: number;
+    paid: number;
+    breakdown: ProjectInstallment[];
+  };
+  milestones: ProjectMilestone[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 interface DashboardContextType {
   lands: Land[];
   designs: Design[];
   managementServices: ManagementService[];
+  projects: Project[];
+  projectClients: ProjectClient[];
   users: AdminUser[];
   isLoadingLands: boolean;
   isLoadingDesigns: boolean;
   isLoadingManagementServices: boolean;
+  isLoadingProjects: boolean;
+  isLoadingProjectClients: boolean;
   isLoadingUsers: boolean;
   fetchLands: (background?: boolean) => Promise<void>;
   fetchDesigns: (background?: boolean) => Promise<void>;
   fetchManagementServices: (background?: boolean) => Promise<void>;
+  fetchProjects: (background?: boolean) => Promise<void>;
+  fetchProjectClients: (background?: boolean) => Promise<void>;
   fetchUsers: (background?: boolean) => Promise<void>;
   setLands: React.Dispatch<React.SetStateAction<Land[]>>;
   setDesigns: React.Dispatch<React.SetStateAction<Design[]>>;
   setManagementServices: React.Dispatch<React.SetStateAction<ManagementService[]>>;
+  setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
+  setProjectClients: React.Dispatch<React.SetStateAction<ProjectClient[]>>;
   setUsers: React.Dispatch<React.SetStateAction<AdminUser[]>>;
 }
 
@@ -95,11 +169,15 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [lands, setLands] = useState<Land[]>([]);
   const [designs, setDesigns] = useState<Design[]>([]);
   const [managementServices, setManagementServices] = useState<ManagementService[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectClients, setProjectClients] = useState<ProjectClient[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
 
   const [isLoadingLands, setIsLoadingLands] = useState(false);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
   const [isLoadingManagementServices, setIsLoadingManagementServices] = useState(false);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [isLoadingProjectClients, setIsLoadingProjectClients] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   const fetchLands = useCallback(async (background = false) => {
@@ -138,6 +216,30 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const fetchProjects = useCallback(async (background = false) => {
+    if (!background) setIsLoadingProjects(true);
+    try {
+      const response = await apiClient.get<Project[]>("/admin/projects");
+      setProjects(response.data);
+    } catch (error) {
+      console.error("Fetch projects error:", error);
+    } finally {
+      if (!background) setIsLoadingProjects(false);
+    }
+  }, []);
+
+  const fetchProjectClients = useCallback(async (background = false) => {
+    if (!background) setIsLoadingProjectClients(true);
+    try {
+      const response = await apiClient.get<ProjectClient[]>("/admin/project-clients");
+      setProjectClients(response.data);
+    } catch (error) {
+      console.error("Fetch project clients error:", error);
+    } finally {
+      if (!background) setIsLoadingProjectClients(false);
+    }
+  }, []);
+
   const fetchUsers = useCallback(async (background = false) => {
     if (!background) setIsLoadingUsers(true);
     try {
@@ -156,18 +258,26 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         lands,
         designs,
         managementServices,
+        projects,
+        projectClients,
         users,
         isLoadingLands,
         isLoadingDesigns,
         isLoadingManagementServices,
+        isLoadingProjects,
+        isLoadingProjectClients,
         isLoadingUsers,
         fetchLands,
         fetchDesigns,
         fetchManagementServices,
+        fetchProjects,
+        fetchProjectClients,
         fetchUsers,
         setLands,
         setDesigns,
         setManagementServices,
+        setProjects,
+        setProjectClients,
         setUsers,
       }}
     >

@@ -262,10 +262,10 @@ export function ServiceManager({
       <section className="dashboard-hero listing-hero">
         <Flex align="center" justify="space-between" className="dashboard-hero-inner">
           <Space direction="vertical" size={10}>
-            <Text className="dashboard-kicker">Property management</Text>
-            <Title level={1}>Property Services</Title>
+            <Text className="dashboard-kicker">Property maintenance</Text>
+            <Title level={1}>Maintenance Services</Title>
             <Text className="dashboard-hero-copy">
-              Configure management services, pricing, client-facing details, and
+              Configure maintenance services, pricing, client-facing details, and
               supporting service media.
             </Text>
           </Space>
