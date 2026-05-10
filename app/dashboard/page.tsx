@@ -119,7 +119,7 @@ const activity = [
   },
   {
     title: "Payment confirmed",
-    description: "$12,000 received for Entebbe Safari Lodge",
+    description: "Ugx 12,000 received for Entebbe Safari Lodge",
     icon: <DollarOutlined />,
   },
 ];

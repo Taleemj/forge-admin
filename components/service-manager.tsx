@@ -210,7 +210,7 @@ export function ServiceManager({
       title: "Pricing",
       key: "pricing",
       render: (_, service) =>
-        `$${service.price.toLocaleString()} / ${billingLabel(service.billingPeriod)}`,
+        `Ugx ${service.price.toLocaleString()} / ${billingLabel(service.billingPeriod)}`,
     },
     {
       title: "Category",
@@ -357,7 +357,7 @@ export function ServiceManager({
               rules={[{ required: true, message: "Add a price." }]}
               className="listing-form-field"
             >
-              <InputNumber min={0} prefix="$" className="full-width" />
+              <InputNumber min={0} prefix="Ugx " className="full-width" />
             </Form.Item>
             <Form.Item
               label="Billing"
@@ -534,7 +534,7 @@ export function ServiceManager({
 
             <Descriptions bordered size="small" column={1}>
               <Descriptions.Item label="Price">
-                ${previewing.price.toLocaleString()} /{" "}
+                Ugx {previewing.price.toLocaleString()} /{" "}
                 {billingLabel(previewing.billingPeriod)}
               </Descriptions.Item>
               <Descriptions.Item label="Category">

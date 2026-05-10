@@ -320,7 +320,7 @@ export default function ProjectsPage() {
     {
       title: "Budget",
       key: "budget",
-      render: (_, project) => `$${project.budget.total.toLocaleString()}`,
+      render: (_, project) => `Ugx ${project.budget.total.toLocaleString()}`,
     },
     {
       title: "Actions",
@@ -486,14 +486,14 @@ export default function ProjectsPage() {
                 className="listing-form-field"
                 rules={[{ required: true, message: "Add total budget." }]}
               >
-                <InputNumber min={0} prefix="$" className="full-width" />
+                <InputNumber min={0} prefix="Ugx " className="full-width" />
               </Form.Item>
               <Form.Item
                 label="Paid"
                 name={["budget", "paid"]}
                 className="listing-form-field"
               >
-                <InputNumber min={0} prefix="$" className="full-width" />
+                <InputNumber min={0} prefix="Ugx " className="full-width" />
               </Form.Item>
             </Flex>
 
@@ -517,7 +517,7 @@ export default function ProjectsPage() {
                           className="listing-form-field"
                           rules={[{ required: true }]}
                         >
-                          <InputNumber min={0} prefix="$" className="full-width" />
+                          <InputNumber min={0} prefix="Ugx " className="full-width" />
                         </Form.Item>
                         <Form.Item
                           label="Due at"
@@ -616,7 +616,7 @@ export default function ProjectsPage() {
               </Descriptions.Item>
               <Descriptions.Item label="Stage">{previewing.stage}</Descriptions.Item>
               <Descriptions.Item label="Budget">
-                ${previewing.budget.total.toLocaleString()} total, $
+                Ugx {previewing.budget.total.toLocaleString()} total, Ugx 
                 {previewing.budget.paid.toLocaleString()} paid
               </Descriptions.Item>
             </Descriptions>

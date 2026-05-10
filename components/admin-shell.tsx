@@ -43,7 +43,7 @@ const notifications = [
   },
   {
     title: "Payment Confirmed",
-    description: "$12,000 received for Entebbe Safari Lodge.",
+    description: "Ugx 12,000 received for Entebbe Safari Lodge.",
     type: "Payment",
     tone: "success",
     unread: true,

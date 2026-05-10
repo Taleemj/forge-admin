@@ -263,7 +263,7 @@ export function ListingManager({
       title: "Price",
       dataIndex: "price",
       key: "price",
-      render: (price: number) => `$${price.toLocaleString()}`,
+      render: (price: number) => `Ugx ${price.toLocaleString()}`,
     },
     {
       title: kind === "land" ? "Status" : "Assets",
@@ -365,7 +365,7 @@ export function ListingManager({
               rules={[{ required: true, message: "Add a price." }]}
               className="listing-form-field"
             >
-              <InputNumber min={0} prefix="$" className="full-width" />
+              <InputNumber min={0} prefix="Ugx " className="full-width" />
             </Form.Item>
 
             {kind === "land" ? (
@@ -596,7 +596,7 @@ export function ListingManager({
 
             <Descriptions bordered size="small" column={1}>
               <Descriptions.Item label="Price">
-                ${previewing.price.toLocaleString()}
+                Ugx {previewing.price.toLocaleString()}
               </Descriptions.Item>
               {kind === "land" ? (
                 <>
