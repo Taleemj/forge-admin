@@ -96,7 +96,7 @@ export type ManagementService = {
 
 export type MaintenanceRequest = {
   _id: string;
-  user:
+  user?:
     | string
     | {
         _id: string;
@@ -104,6 +104,11 @@ export type MaintenanceRequest = {
         email: string;
         phone?: string;
       };
+  guestInfo?: {
+    name: string;
+    email: string;
+    phone: string;
+  };
   service:
     | string
     | {

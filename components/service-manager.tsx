@@ -310,8 +310,13 @@ export function ServiceManager({
       title: "Request",
       key: "request",
       render: (_, request) => {
-        const client =
-          typeof request.user === "string" ? "Client" : request.user.name;
+        let client = "Guest";
+        if (request.user && typeof request.user !== "string") {
+          client = request.user.name;
+        } else if (request.guestInfo) {
+          client = `${request.guestInfo.name} (Guest)`;
+        }
+        
         const service =
           typeof request.service === "string" ? "Service" : request.service.title;
         return (
@@ -696,8 +701,22 @@ export function ServiceManager({
           <Space direction="vertical" size={16} className="full-width">
             <Descriptions bordered size="small" column={1}>
               <Descriptions.Item label="Client">
-                {typeof quoting.user === "string" ? "Client" : quoting.user.name}
+                {quoting.user && typeof quoting.user !== "string" 
+                  ? quoting.user.name 
+                  : quoting.guestInfo 
+                    ? `${quoting.guestInfo.name} (Guest)`
+                    : "Unknown"}
               </Descriptions.Item>
+              {quoting.guestInfo && (
+                <>
+                  <Descriptions.Item label="Email">
+                    {quoting.guestInfo.email}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Phone">
+                    {quoting.guestInfo.phone}
+                  </Descriptions.Item>
+                </>
+              )}
               <Descriptions.Item label="Service">
                 {typeof quoting.service === "string"
                   ? "Service"
