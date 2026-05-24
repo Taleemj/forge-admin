@@ -29,6 +29,32 @@ export type Land = {
   updatedAt: string;
 };
 
+export type House = {
+  _id: string;
+  title: string;
+  location: string;
+  price: number;
+  bedrooms: number;
+  bathrooms: number;
+  size: string;
+  images: string[];
+  status: "available" | "sold" | "under-construction";
+  descriptionMarkdown?: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  media?: Array<{
+    id?: string;
+    type: "image" | "video";
+    url: string;
+    thumbnail?: string;
+    title?: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Design = {
   _id: string;
   title: string;
@@ -205,6 +231,7 @@ export type Project = {
 interface DashboardContextType {
   lands: Land[];
   designs: Design[];
+  houses: House[];
   designRequests: DesignRequest[];
   managementServices: ManagementService[];
   maintenanceRequests: MaintenanceRequest[];
@@ -213,6 +240,7 @@ interface DashboardContextType {
   users: AdminUser[];
   isLoadingLands: boolean;
   isLoadingDesigns: boolean;
+  isLoadingHouses: boolean;
   isLoadingDesignRequests: boolean;
   isLoadingManagementServices: boolean;
   isLoadingMaintenanceRequests: boolean;
@@ -221,6 +249,7 @@ interface DashboardContextType {
   isLoadingUsers: boolean;
   fetchLands: (background?: boolean) => Promise<void>;
   fetchDesigns: (background?: boolean) => Promise<void>;
+  fetchHouses: (background?: boolean) => Promise<void>;
   fetchDesignRequests: (background?: boolean) => Promise<void>;
   fetchManagementServices: (background?: boolean) => Promise<void>;
   fetchMaintenanceRequests: (background?: boolean) => Promise<void>;
@@ -229,6 +258,7 @@ interface DashboardContextType {
   fetchUsers: (background?: boolean) => Promise<void>;
   setLands: React.Dispatch<React.SetStateAction<Land[]>>;
   setDesigns: React.Dispatch<React.SetStateAction<Design[]>>;
+  setHouses: React.Dispatch<React.SetStateAction<House[]>>;
   setDesignRequests: React.Dispatch<React.SetStateAction<DesignRequest[]>>;
   setManagementServices: React.Dispatch<React.SetStateAction<ManagementService[]>>;
   setMaintenanceRequests: React.Dispatch<React.SetStateAction<MaintenanceRequest[]>>;
@@ -242,6 +272,7 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [lands, setLands] = useState<Land[]>([]);
   const [designs, setDesigns] = useState<Design[]>([]);
+  const [houses, setHouses] = useState<House[]>([]);
   const [designRequests, setDesignRequests] = useState<DesignRequest[]>([]);
   const [managementServices, setManagementServices] = useState<ManagementService[]>([]);
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
@@ -251,6 +282,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const [isLoadingLands, setIsLoadingLands] = useState(false);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
+  const [isLoadingHouses, setIsLoadingHouses] = useState(false);
   const [isLoadingDesignRequests, setIsLoadingDesignRequests] = useState(false);
   const [isLoadingManagementServices, setIsLoadingManagementServices] = useState(false);
   const [isLoadingMaintenanceRequests, setIsLoadingMaintenanceRequests] = useState(false);
@@ -279,6 +311,18 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       console.error("Fetch designs error:", error);
     } finally {
       if (!background) setIsLoadingDesigns(false);
+    }
+  }, []);
+
+  const fetchHouses = useCallback(async (background = false) => {
+    if (!background) setIsLoadingHouses(true);
+    try {
+      const response = await apiClient.get<House[]>("/admin/houses");
+      setHouses(response.data);
+    } catch (error) {
+      console.error("Fetch houses error:", error);
+    } finally {
+      if (!background) setIsLoadingHouses(false);
     }
   }, []);
 
@@ -361,6 +405,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       value={{
         lands,
         designs,
+        houses,
         designRequests,
         managementServices,
         maintenanceRequests,
@@ -369,6 +414,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         users,
         isLoadingLands,
         isLoadingDesigns,
+        isLoadingHouses,
         isLoadingDesignRequests,
         isLoadingManagementServices,
         isLoadingMaintenanceRequests,
@@ -377,6 +423,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         isLoadingUsers,
         fetchLands,
         fetchDesigns,
+        fetchHouses,
         fetchDesignRequests,
         fetchManagementServices,
         fetchMaintenanceRequests,
@@ -385,6 +432,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         fetchUsers,
         setLands,
         setDesigns,
+        setHouses,
         setDesignRequests,
         setManagementServices,
         setMaintenanceRequests,

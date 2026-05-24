@@ -15,6 +15,7 @@ export type AdminModuleKey =
   | "dashboard"
   | "lands"
   | "designs"
+  | "houses"
   | "management_services"
   | "projects"
   | "payments"
@@ -40,6 +41,12 @@ export const adminModules: AdminModule[] = [
     label: "Land Listings",
     href: "/dashboard/lands",
     icon: <BuildOutlined />,
+  },
+  {
+    key: "houses",
+    label: "Houses for Sale",
+    href: "/dashboard/houses",
+    icon: <HomeOutlined />,
   },
   {
     key: "designs",

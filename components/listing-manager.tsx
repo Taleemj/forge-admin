@@ -40,7 +40,7 @@ const { Text, Title } = Typography;
 const imageFallback =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='120'%3E%3Crect width='160' height='120' fill='%23e2e8f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-family='Arial' font-size='12'%3ENo image%3C/text%3E%3C/svg%3E";
 
-export type ListingKind = "land" | "design";
+export type ListingKind = "land" | "design" | "house";
 
 export type AdminListing = {
   _id: string;
@@ -48,9 +48,11 @@ export type AdminListing = {
   price: number;
   images: string[];
   descriptionMarkdown?: string;
-  status?: "available" | "sold";
+  status?: "available" | "sold" | "under-construction";
   location?: string;
   size?: string;
+  bedrooms?: number;
+  bathrooms?: number;
   coordinates?: {
     latitude: number;
     longitude: number;
@@ -120,14 +122,18 @@ export function ListingManager({
 
   const copy = useMemo(() => {
     const isLand = kind === "land";
+    const isDesign = kind === "design";
+    const isHouse = kind === "house";
 
     return {
-      title: isLand ? "Land Listings" : "House Designs",
-      kicker: isLand ? "Marketplace inventory" : "Design catalogue",
+      title: isLand ? "Land Listings" : isHouse ? "Houses for Sale" : "House Designs",
+      kicker: isLand ? "Marketplace inventory" : isHouse ? "Property listings" : "Design catalogue",
       description: isLand
         ? "Create, edit, publish, and retire land listings."
+        : isHouse
+        ? "Manage house listings, bedroom/bathroom counts, location, and gallery media."
         : "Manage design packages, floor plans, gallery media, pricing, and markdown descriptions.",
-      createLabel: isLand ? "New Land Listing" : "New Design",
+      createLabel: isLand ? "New Land Listing" : isHouse ? "New House Listing" : "New Design",
     };
   }, [kind]);
 
@@ -202,12 +208,17 @@ export function ListingManager({
       payload.append("retainedImages", JSON.stringify(keptImages));
       payload.append("retainedMedia", JSON.stringify(retainedMedia));
 
-      if (kind === "land") {
+      if (kind === "land" || kind === "house") {
         payload.append("status", values.status ?? "available");
         payload.append("location", values.location ?? "");
         payload.append("size", values.size ?? "");
         if (values.latitude !== undefined) payload.append("latitude", String(values.latitude));
         if (values.longitude !== undefined) payload.append("longitude", String(values.longitude));
+
+        if (kind === "house") {
+          payload.append("bedrooms", String(values.bedrooms ?? 0));
+          payload.append("bathrooms", String(values.bathrooms ?? 0));
+        }
       } else {
         payload.append("description", values.description ?? "");
         payload.append("removeFloorPlan", String(removeFloorPlan));
@@ -294,7 +305,7 @@ export function ListingManager({
           <Space direction="vertical" size={0}>
             <Text strong>{listing.title}</Text>
             <Text type="secondary">
-              {kind === "land" ? listing.location : listing.description}
+              {kind === "design" ? listing.description : listing.location}
             </Text>
           </Space>
         </Flex>
@@ -307,16 +318,24 @@ export function ListingManager({
       render: (price: number) => `Ugx ${price.toLocaleString()}`,
     },
     {
-      title: kind === "land" ? "Status" : "Assets",
+      title: kind === "design" ? "Assets" : "Status",
       key: "status",
       render: (_, listing) =>
-        kind === "land" ? (
-          <Tag color={listing.status === "available" ? "success" : "default"}>
-            {listing.status}
-          </Tag>
-        ) : (
+        kind === "design" ? (
           <Tag color={listing.floorPlan ? "success" : "warning"}>
             {listing.floorPlan ? "Floor plan" : "Needs plan"}
+          </Tag>
+        ) : (
+          <Tag
+            color={
+              listing.status === "available"
+                ? "success"
+                : listing.status === "under-construction"
+                ? "processing"
+                : "default"
+            }
+          >
+            {listing.status}
           </Tag>
         ),
     },
@@ -460,12 +479,15 @@ export function ListingManager({
               <InputNumber min={0} prefix="Ugx " className="full-width" />
             </Form.Item>
 
-            {kind === "land" ? (
+            {kind !== "design" ? (
               <Form.Item label="Status" name="status" className="listing-form-field">
                 <Select
                   options={[
                     { value: "available", label: "Available" },
                     { value: "sold", label: "Sold" },
+                    ...(kind === "house"
+                      ? [{ value: "under-construction", label: "Under Construction" }]
+                      : []),
                   ]}
                 />
               </Form.Item>
@@ -476,16 +498,26 @@ export function ListingManager({
             )}
           </Flex>
 
-          {kind === "land" ? (
+          {kind !== "design" ? (
             <>
               <Flex gap={16} className="listing-form-row">
                 <Form.Item label="Location" name="location" className="listing-form-field">
                   <Input placeholder="Wakiso, Uganda" />
                 </Form.Item>
                 <Form.Item label="Size" name="size" className="listing-form-field">
-                  <Input placeholder="0.25 Acre" />
+                  <Input placeholder={kind === "land" ? "0.25 Acre" : "250 sqm"} />
                 </Form.Item>
               </Flex>
+              {kind === "house" ? (
+                <Flex gap={16} className="listing-form-row">
+                  <Form.Item label="Bedrooms" name="bedrooms" className="listing-form-field">
+                    <InputNumber min={0} className="full-width" />
+                  </Form.Item>
+                  <Form.Item label="Bathrooms" name="bathrooms" className="listing-form-field">
+                    <InputNumber min={0} className="full-width" />
+                  </Form.Item>
+                </Flex>
+              ) : null}
               <Flex gap={16} className="listing-form-row">
                 <Form.Item label="Latitude" name="latitude" className="listing-form-field">
                   <InputNumber className="full-width" step={0.0001} />
@@ -690,10 +722,16 @@ export function ListingManager({
               <Descriptions.Item label="Price">
                 Ugx {previewing.price.toLocaleString()}
               </Descriptions.Item>
-              {kind === "land" ? (
+              {kind !== "design" ? (
                 <>
                   <Descriptions.Item label="Location">{previewing.location}</Descriptions.Item>
                   <Descriptions.Item label="Size">{previewing.size}</Descriptions.Item>
+                  {kind === "house" ? (
+                    <>
+                      <Descriptions.Item label="Bedrooms">{previewing.bedrooms}</Descriptions.Item>
+                      <Descriptions.Item label="Bathrooms">{previewing.bathrooms}</Descriptions.Item>
+                    </>
+                  ) : null}
                   <Descriptions.Item label="Status">{previewing.status}</Descriptions.Item>
                 </>
               ) : (
