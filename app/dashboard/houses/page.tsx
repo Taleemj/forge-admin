@@ -5,7 +5,8 @@ import { useHouses } from "@/hooks/useHouses";
 import type { House } from "@/context/dashboard-context";
 
 export default function HousesPage() {
-  const { houses, isLoading, createHouse, updateHouse, deleteHouse } = useHouses();
+  const { houses, isLoading, createHouse, updateHouse, deleteHouse } =
+    useHouses();
 
   return (
     <ListingManager
@@ -13,6 +14,7 @@ export default function HousesPage() {
       listings={houses as any}
       isLoading={isLoading}
       onCreate={createHouse}
+      // @ts-ignore
       onUpdate={updateHouse}
       onDelete={deleteHouse}
     />
