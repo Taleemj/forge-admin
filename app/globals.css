@@ -654,6 +654,30 @@ body {
   background: linear-gradient(90deg, #2dd4bf, #ff5c00);
 }
 
+.location-map-summary {
+  align-items: flex-start;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.location-map-summary .anticon {
+  color: #ff5c00;
+  font-size: 18px;
+  margin-top: 2px;
+}
+
+.location-map-preview {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  height: 220px;
+  overflow: hidden;
+  width: 100%;
+}
+
 @media (max-width: 767px) {
   .auth-page {
     display: block;

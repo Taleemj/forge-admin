@@ -32,6 +32,7 @@ import type { UploadFile } from "antd/es/upload/interface";
 import { useMemo, useState } from "react";
 
 import { AdminShell } from "@/components/admin-shell";
+import { LocationMapPreview } from "@/components/location-map-preview";
 import { MarkdownEditor, MarkdownPreview } from "@/components/markdown-editor";
 import type {
   MaintenanceRequest,
@@ -729,6 +730,10 @@ export function ServiceManager({
                 {quoting.propertyNotes || "No notes provided"}
               </Descriptions.Item>
             </Descriptions>
+
+            <Card title="Property location" size="small">
+              <LocationMapPreview location={quoting.location} />
+            </Card>
 
             <Form form={quoteForm} layout="vertical" onFinish={handleQuoteSubmit}>
               <Form.Item
