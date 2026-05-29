@@ -317,13 +317,34 @@ export function ServiceManager({
         } else if (request.guestInfo) {
           client = `${request.guestInfo.name} (Guest)`;
         }
-        
+
         const service =
           typeof request.service === "string" ? "Service" : request.service.title;
         return (
           <Space direction="vertical" size={0}>
             <Text strong>{service}</Text>
             <Text type="secondary">{client}</Text>
+          </Space>
+        );
+      },
+    },
+    {
+      title: "Contact",
+      key: "contact",
+      render: (_, request) => {
+        let email = "";
+        let phone = "";
+        if (request.user && typeof request.user !== "string") {
+          email = request.user.email;
+          phone = request.user.phone;
+        } else if (request.guestInfo) {
+          email = request.guestInfo.email;
+          phone = request.guestInfo.phone;
+        }
+        return (
+          <Space direction="vertical" size={0}>
+            {email && <Text size="small">{email}</Text>}
+            {phone && <Text type="secondary" size="small">{phone}</Text>}
           </Space>
         );
       },

@@ -18,6 +18,7 @@ export type AdminModuleKey =
   | "houses"
   | "management_services"
   | "construction_service"
+  | "marketplace_inquiries"
   | "projects"
   | "payments"
   | "users"
@@ -66,6 +67,12 @@ export const adminModules: AdminModule[] = [
     label: "Construction Service",
     href: "/dashboard/construction-service",
     icon: <BuildOutlined />,
+  },
+  {
+    key: "marketplace_inquiries",
+    label: "Marketplace Interest",
+    href: "/dashboard/marketplace-inquiries",
+    icon: <TeamOutlined />,
   },
   {
     key: "projects",

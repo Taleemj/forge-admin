@@ -33,7 +33,7 @@ import { useMemo, useState } from "react";
 
 import { AdminShell } from "@/components/admin-shell";
 import { MarkdownEditor, MarkdownPreview } from "@/components/markdown-editor";
-import type { DesignRequest } from "@/context/dashboard-context";
+import type { DesignRequest, MarketplaceInquiry } from "@/context/dashboard-context";
 
 const { Text, Title } = Typography;
 
@@ -80,6 +80,7 @@ interface ListingManagerProps {
   kind: ListingKind;
   listings: AdminListing[];
   designRequests?: DesignRequest[];
+  marketplaceInquiries?: MarketplaceInquiry[];
   isLoading: boolean;
   onCreate: (data: FormData) => Promise<unknown>;
   onUpdate: (id: string, data: FormData) => Promise<unknown>;
@@ -87,6 +88,11 @@ interface ListingManagerProps {
   onUpdateDesignRequest?: (data: {
     id: string;
     status: DesignRequest["status"];
+    adminNotes?: string;
+  }) => Promise<unknown>;
+  onUpdateMarketplaceInquiry?: (data: {
+    id: string;
+    status: MarketplaceInquiry["status"];
     adminNotes?: string;
   }) => Promise<unknown>;
 }
@@ -99,21 +105,24 @@ export function ListingManager({
   kind,
   listings,
   designRequests = [],
+  marketplaceInquiries = [],
   isLoading,
   onCreate,
   onUpdate,
   onDelete,
   onUpdateDesignRequest,
+  onUpdateMarketplaceInquiry,
 }: ListingManagerProps) {
   const [form] = Form.useForm<ListingFormValues>();
   const [requestForm] = Form.useForm<{
-    status: DesignRequest["status"];
+    status: DesignRequest["status"] | MarketplaceInquiry["status"];
     adminNotes?: string;
   }>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<AdminListing | null>(null);
   const [previewing, setPreviewing] = useState<AdminListing | null>(null);
   const [editingRequest, setEditingRequest] = useState<DesignRequest | null>(null);
+  const [editingInquiry, setEditingInquiry] = useState<MarketplaceInquiry | null>(null);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [removedMediaUrls, setRemovedMediaUrls] = useState<string[]>([]);
   const [removeFloorPlan, setRemoveFloorPlan] = useState(false);
@@ -263,6 +272,7 @@ export function ListingManager({
 
   const openRequest = (request: DesignRequest) => {
     setEditingRequest(request);
+    setEditingInquiry(null);
     requestForm.resetFields();
     requestForm.setFieldsValue({
       status: request.status,
@@ -270,20 +280,50 @@ export function ListingManager({
     });
   };
 
+  const openInquiry = (inquiry: MarketplaceInquiry) => {
+    setEditingInquiry(inquiry);
+    setEditingRequest(null);
+    requestForm.resetFields();
+    requestForm.setFieldsValue({
+      status: inquiry.status,
+      adminNotes: inquiry.adminNotes,
+    });
+  };
+
   const handleRequestSubmit = async (values: {
-    status: DesignRequest["status"];
+    status: DesignRequest["status"] | MarketplaceInquiry["status"];
     adminNotes?: string;
   }) => {
-    if (!editingRequest || !onUpdateDesignRequest) return;
-    setRequestSubmitting(true);
-    try {
-      await onUpdateDesignRequest({ id: editingRequest._id, ...values });
-      message.success("Design request updated");
-      setEditingRequest(null);
-    } catch {
-      message.error("Failed to update design request");
-    } finally {
-      setRequestSubmitting(false);
+    if (editingRequest && onUpdateDesignRequest) {
+      setRequestSubmitting(true);
+      try {
+        await onUpdateDesignRequest({
+          id: editingRequest._id,
+          status: values.status as DesignRequest["status"],
+          adminNotes: values.adminNotes,
+        });
+        message.success("Design request updated");
+        setEditingRequest(null);
+      } catch {
+        message.error("Failed to update design request");
+      } finally {
+        setRequestSubmitting(false);
+      }
+    } else if (editingInquiry && onUpdateMarketplaceInquiry) {
+      setRequestSubmitting(true);
+      try {
+        await onUpdateMarketplaceInquiry({
+          id: editingInquiry._id,
+          status: values.status as MarketplaceInquiry["status"],
+          adminNotes: values.adminNotes,
+        });
+        message.success("Inquiry updated");
+        setEditingInquiry(null);
+      } catch {
+        message.error("Failed to update inquiry");
+      } finally {
+        setRequestSubmitting(false);
+      }
     }
   };
 
@@ -384,6 +424,27 @@ export function ListingManager({
       ),
     },
     {
+      title: "Contact",
+      key: "contact",
+      render: (_, request) => {
+        let email = "";
+        let phone = "";
+        if (request.user && typeof request.user !== "string") {
+          email = request.user.email;
+          phone = request.user.phone;
+        } else if (request.guestInfo) {
+          email = request.guestInfo.email;
+          phone = request.guestInfo.phone;
+        }
+        return (
+          <Space direction="vertical" size={0}>
+            {email && <Text size="small">{email}</Text>}
+            {phone && <Text type="secondary" size="small">{phone}</Text>}
+          </Space>
+        );
+      },
+    },
+    {
       title: "Status",
       dataIndex: "status",
       key: "status",
@@ -400,6 +461,81 @@ export function ListingManager({
       width: 140,
       render: (_, request) => (
         <Button icon={<EditOutlined />} onClick={() => openRequest(request)}>
+          Update
+        </Button>
+      ),
+    },
+  ];
+
+  const inquiryColumns: ColumnsType<MarketplaceInquiry> = [
+    {
+      title: "Inquiry",
+      key: "inquiry",
+      render: (_, inquiry) => {
+        let client = "Guest";
+        if (inquiry.user && typeof inquiry.user !== "string") {
+          client = inquiry.user.name;
+        } else if (inquiry.guestInfo) {
+          client = `${inquiry.guestInfo.name} (Guest)`;
+        }
+
+        const item = inquiry.land || inquiry.house;
+        const itemTitle = typeof item === "object" ? item.title : "Marketplace Item";
+
+        return (
+          <Space direction="vertical" size={0}>
+            <Text strong>{itemTitle}</Text>
+            <Text type="secondary">{client}</Text>
+          </Space>
+        );
+      },
+    },
+    {
+      title: "Contact",
+      key: "contact",
+      render: (_, inquiry) => {
+        let email = "";
+        let phone = "";
+        if (inquiry.user && typeof inquiry.user !== "string") {
+          email = inquiry.user.email;
+          phone = inquiry.user.phone;
+        } else if (inquiry.guestInfo) {
+          email = inquiry.guestInfo.email;
+          phone = inquiry.guestInfo.phone;
+        }
+        return (
+          <Space direction="vertical" size={0}>
+            {email && <Text size="small">{email}</Text>}
+            {phone && <Text type="secondary" size="small">{phone}</Text>}
+          </Space>
+        );
+      },
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (status: MarketplaceInquiry["status"]) => (
+        <Tag
+          color={
+            status === "resolved" ? "success" : status === "rejected" ? "error" : "processing"
+          }
+        >
+          {status}
+        </Tag>
+      ),
+    },
+    {
+      title: "Notes",
+      key: "notes",
+      render: (_, inquiry) => inquiry.notes || "No client notes",
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      width: 140,
+      render: (_, inquiry) => (
+        <Button icon={<EditOutlined />} onClick={() => openInquiry(inquiry)}>
           Update
         </Button>
       ),
@@ -437,6 +573,20 @@ export function ListingManager({
           <Table
             columns={designRequestColumns}
             dataSource={designRequests}
+            rowKey="_id"
+            loading={isLoading}
+            pagination={{ pageSize: 6 }}
+            scroll={{ x: 760 }}
+          />
+        </Card>
+      ) : kind === "land" || kind === "house" ? (
+        <Card
+          title="Marketplace Interest Requests"
+          className="dashboard-card listing-card dashboard-grid"
+        >
+          <Table
+            columns={inquiryColumns}
+            dataSource={marketplaceInquiries}
             rowKey="_id"
             loading={isLoading}
             pagination={{ pageSize: 6 }}
@@ -754,14 +904,24 @@ export function ListingManager({
       </Modal>
 
       <Drawer
-        title="Update Design Request"
-        open={Boolean(editingRequest)}
-        onClose={() => setEditingRequest(null)}
+        title={editingRequest ? "Update Design Request" : "Update Interest Request"}
+        open={Boolean(editingRequest || editingInquiry)}
+        onClose={() => {
+          setEditingRequest(null);
+          setEditingInquiry(null);
+        }}
         width={560}
         destroyOnClose
         extra={
           <Space>
-            <Button onClick={() => setEditingRequest(null)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                setEditingRequest(null);
+                setEditingInquiry(null);
+              }}
+            >
+              Cancel
+            </Button>
             <Button
               type="primary"
               onClick={() => requestForm.submit()}
@@ -772,34 +932,68 @@ export function ListingManager({
           </Space>
         }
       >
-        {editingRequest ? (
+        {editingRequest || editingInquiry ? (
           <Space direction="vertical" size={16} className="full-width">
             <Descriptions bordered size="small" column={1}>
               <Descriptions.Item label="Client">
-                {typeof editingRequest.user === "string"
-                  ? "Client"
-                  : editingRequest.user.name}
+                {editingRequest
+                  ? typeof editingRequest.user === "string"
+                    ? "Client"
+                    : editingRequest.user.name
+                  : editingInquiry?.user && typeof editingInquiry.user !== "string"
+                  ? editingInquiry.user.name
+                  : editingInquiry?.guestInfo
+                  ? `${editingInquiry.guestInfo.name} (Guest)`
+                  : "Guest"}
               </Descriptions.Item>
-              <Descriptions.Item label="Design">
-                {typeof editingRequest.design === "string"
-                  ? "Design"
-                  : editingRequest.design.title}
+              {(editingRequest?.guestInfo || editingInquiry?.guestInfo) && (
+                <>
+                  <Descriptions.Item label="Email">
+                    {editingRequest?.guestInfo?.email || editingInquiry?.guestInfo?.email}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Phone">
+                    {editingRequest?.guestInfo?.phone || editingInquiry?.guestInfo?.phone}
+                  </Descriptions.Item>
+                </>
+              )}
+              <Descriptions.Item label={editingRequest ? "Design" : "Item"}>
+                {editingRequest
+                  ? typeof editingRequest.design === "string"
+                    ? "Design"
+                    : editingRequest.design.title
+                  : editingInquiry?.land
+                  ? typeof editingInquiry.land === "string"
+                    ? "Land"
+                    : editingInquiry.land.title
+                  : typeof editingInquiry?.house === "string"
+                  ? "House"
+                  : editingInquiry?.house?.title}
               </Descriptions.Item>
               <Descriptions.Item label="Client Notes">
-                {editingRequest.notes || "No notes provided"}
+                {editingRequest ? editingRequest.notes : editingInquiry?.notes || "No notes provided"}
               </Descriptions.Item>
             </Descriptions>
 
             <Form form={requestForm} layout="vertical" onFinish={handleRequestSubmit}>
               <Form.Item label="Status" name="status" rules={[{ required: true }]}>
                 <Select
-                  options={[
-                    { value: "requested", label: "Requested" },
-                    { value: "contacted", label: "Contacted" },
-                    { value: "in_discussion", label: "In Discussion" },
-                    { value: "confirmed", label: "Confirmed" },
-                    { value: "rejected", label: "Rejected" },
-                  ]}
+                  options={
+                    editingRequest
+                      ? [
+                          { value: "requested", label: "Requested" },
+                          { value: "contacted", label: "Contacted" },
+                          { value: "in_discussion", label: "In Discussion" },
+                          { value: "confirmed", label: "Confirmed" },
+                          { value: "rejected", label: "Rejected" },
+                        ]
+                      : [
+                          { value: "requested", label: "Requested" },
+                          { value: "contacted", label: "Contacted" },
+                          { value: "in_discussion", label: "In Discussion" },
+                          { value: "resolved", label: "Resolved" },
+                          { value: "rejected", label: "Rejected" },
+                        ]
+                  }
                 />
               </Form.Item>
               <Form.Item label="Admin Notes" name="adminNotes">

@@ -2,21 +2,29 @@
 
 import { ListingManager } from "@/components/listing-manager";
 import { useHouses } from "@/hooks/useHouses";
-import type { House } from "@/context/dashboard-context";
+import { useMarketplaceInquiries } from "@/hooks/useMarketplaceInquiries";
 
 export default function HousesPage() {
-  const { houses, isLoading, createHouse, updateHouse, deleteHouse } =
-    useHouses();
+  const { houses, isLoading, createHouse, updateHouse, deleteHouse } = useHouses();
+  const {
+    inquiries,
+    loading: isLoadingInquiries,
+    updateInquiry,
+  } = useMarketplaceInquiries();
+
+  const houseInquiries = inquiries.filter((inquiry) => inquiry.itemType === "house");
 
   return (
     <ListingManager
       kind="house"
       listings={houses as any}
-      isLoading={isLoading}
+      marketplaceInquiries={houseInquiries}
+      isLoading={isLoading || isLoadingInquiries}
       onCreate={createHouse}
       // @ts-ignore
       onUpdate={updateHouse}
       onDelete={deleteHouse}
+      onUpdateMarketplaceInquiry={({ id, ...data }) => updateInquiry(id, data)}
     />
   );
 }
