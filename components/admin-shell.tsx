@@ -23,6 +23,7 @@ import {
   Typography,
 } from "antd";
 import type { MenuProps } from "antd";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -175,7 +176,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
         className="admin-sidebar"
       >
         <div className="admin-brand">
-          <div className="admin-brand-mark">F</div>
+          <div className="admin-brand-mark">
+            <Image src="/app-logo.png" alt="Forge" width={24} height={24} />
+          </div>
           {!collapsed && (
             <div>
               <Text className="admin-brand-kicker">Forge Housing</Text>

@@ -4,8 +4,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "Internal dashboard application",
+  title: "Forge Housing | Admin Dashboard",
+  description: "Internal management dashboard for Forge Housing.",
 };
 
 export default function RootLayout({

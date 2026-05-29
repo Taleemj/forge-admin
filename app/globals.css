@@ -196,6 +196,12 @@ body {
   width: 38px;
 }
 
+.admin-brand-mark img,
+.auth-brand-mark img {
+  display: block;
+  object-fit: contain;
+}
+
 .admin-brand-kicker {
   color: rgba(255, 255, 255, 0.54) !important;
   display: block;

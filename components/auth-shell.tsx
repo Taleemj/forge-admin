@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, Typography } from "antd";
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -19,7 +20,9 @@ export function AuthShell({
     <main className="auth-page">
       <section className="auth-panel">
         <Link href="/login" className="auth-brand">
-          <span className="auth-brand-mark">F</span>
+          <span className="auth-brand-mark">
+            <Image src="/app-logo.png" alt="Forge" width={28} height={28} />
+          </span>
           <span>
             <Text className="auth-brand-kicker">Forge Housing</Text>
             <Title level={5}>Admin</Title>
