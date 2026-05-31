@@ -202,10 +202,20 @@ export type ProjectMilestone = {
   }>;
 };
 
+export type ProjectDocument = {
+  _id?: string;
+  title: string;
+  description?: string;
+  url: string;
+  fileName: string;
+  mimeType: string;
+  uploadedAt: string;
+};
+
 export type Project = {
   _id: string;
   title: string;
-  type: "construction" | "design" | "management";
+  type: "construction" | "design";
   status:
     | "planning"
     | "construction"
@@ -218,12 +228,32 @@ export type Project = {
   client: ProjectClient | string;
   landId?: Land | string;
   designId?: Design | string;
+  liveCamera?: {
+    enabled: boolean;
+    streamUrl?: string;
+    label?: string;
+    lastSnapshotUrl?: string;
+  };
   budget: {
     total: number;
     paid: number;
     breakdown: ProjectInstallment[];
   };
   milestones: ProjectMilestone[];
+  updates?: Array<{
+    title: string;
+    description: string;
+    date: string;
+    image?: string;
+    media?: Array<{
+      id?: string;
+      type: "image" | "video";
+      url: string;
+      thumbnail?: string;
+      title?: string;
+    }>;
+  }>;
+  documentLocker?: ProjectDocument[];
   createdAt: string;
   updatedAt: string;
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Space, Table, Tag, Typography } from "antd";
+import { Card, Descriptions, Space, Table, Tag, Typography } from "antd";
 import { AdminShell } from "@/components/admin-shell";
 import { useMarketplaceInquiries } from "@/hooks/useMarketplaceInquiries";
 import { EditOutlined } from "@ant-design/icons";
@@ -84,8 +84,8 @@ export default function MarketplaceInquiriesPage() {
         }
         return (
           <Space direction="vertical" size={0}>
-            {email && <Text size="small">{email}</Text>}
-            {phone && <Text type="secondary" size="small">{phone}</Text>}
+            {email && <Text>{email}</Text>}
+            {phone && <Text type="secondary">{phone}</Text>}
           </Space>
         );
       },

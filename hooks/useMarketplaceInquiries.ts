@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { forgeApi } from "@/lib/forge-api";
+import { apiClient } from "@/lib/api";
 
 export type MarketplaceInquiry = {
   id: string;
@@ -35,6 +35,13 @@ export type MarketplaceInquiry = {
   updatedAt: string;
 };
 
+function normalizeInquiry(inquiry: MarketplaceInquiry) {
+  return {
+    ...inquiry,
+    id: inquiry.id || inquiry._id || "",
+  };
+}
+
 export function useMarketplaceInquiries() {
   const [inquiries, setInquiries] = useState<MarketplaceInquiry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,8 +50,10 @@ export function useMarketplaceInquiries() {
   const fetchInquiries = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await forgeApi.getMarketplaceInquiries();
-      setInquiries(data);
+      const response = await apiClient.get<MarketplaceInquiry[]>(
+        "/admin/marketplace-inquiries",
+      );
+      setInquiries(response.data.map(normalizeInquiry));
       setError(null);
     } catch (err) {
       setError("Failed to fetch marketplace inquiries");
@@ -56,9 +65,14 @@ export function useMarketplaceInquiries() {
 
   const updateInquiry = useCallback(async (id: string, payload: any) => {
     try {
-      const updated = await forgeApi.updateMarketplaceInquiry(id, payload);
+      const response = await apiClient.put<MarketplaceInquiry>(
+        `/admin/marketplace-inquiries/${id}`,
+        payload,
+      );
       setInquiries((prev) =>
-        prev.map((item) => (item.id === id || item._id === id ? updated : item)),
+        prev.map((item) =>
+          item.id === id || item._id === id ? normalizeInquiry(response.data) : item,
+        ),
       );
       return { success: true };
     } catch (err) {

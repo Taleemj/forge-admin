@@ -2,10 +2,13 @@
 
 import {
   DeleteOutlined,
+  DownloadOutlined,
   EditOutlined,
   EyeOutlined,
+  FileTextOutlined,
   PlusOutlined,
   UploadOutlined,
+  VideoCameraOutlined,
 } from "@ant-design/icons";
 import {
   Button,
@@ -21,6 +24,7 @@ import {
   Progress,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -40,6 +44,13 @@ const { TextArea } = Input;
 
 type ProjectFormValues = ProjectPayload;
 
+type ClientFormValues = {
+  name: string;
+  email: string;
+  phone: string;
+  password?: string;
+};
+
 type MilestoneFormValues = {
   title: string;
   description?: string;
@@ -49,6 +60,12 @@ type MilestoneFormValues = {
   updateDescription?: string;
   imageUploads?: UploadFile[];
   videoUploads?: UploadFile[];
+};
+
+type DocumentFormValues = {
+  title?: string;
+  description?: string;
+  documents?: UploadFile[];
 };
 
 function uploadValueFromEvent(event: { fileList?: UploadFile[] } | UploadFile[]) {
@@ -69,7 +86,6 @@ function optionLabel(value: string) {
 const projectTypeOptions = [
   { value: "construction", label: "Construction" },
   { value: "design", label: "Design" },
-  { value: "management", label: "Maintenance" },
 ];
 
 const statusOptions = [
@@ -116,6 +132,7 @@ const defaultMilestones: ProjectMilestone[] = [
 export default function ProjectsPage() {
   const [form] = Form.useForm<ProjectFormValues>();
   const [milestoneForm] = Form.useForm<MilestoneFormValues>();
+  const [documentForm] = Form.useForm<DocumentFormValues>();
   const {
     projects,
     clients,
@@ -123,19 +140,26 @@ export default function ProjectsPage() {
     designs,
     isLoading,
     createProject,
+    createClient,
     updateProject,
     updateMilestone,
+    uploadDocuments,
     deleteProject,
   } = useProjects();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [clientForm] = Form.useForm<ClientFormValues>();
+  const [clientModalOpen, setClientModalOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [previewing, setPreviewing] = useState<Project | null>(null);
   const [milestoneProject, setMilestoneProject] = useState<Project | null>(null);
   const [editingMilestone, setEditingMilestone] = useState<ProjectMilestone | null>(
     null,
   );
+  const [documentProject, setDocumentProject] = useState<Project | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [milestoneSubmitting, setMilestoneSubmitting] = useState(false);
+  const [documentSubmitting, setDocumentSubmitting] = useState(false);
+  const [clientSubmitting, setClientSubmitting] = useState(false);
 
   const summary = useMemo(() => {
     const active = projects.filter((project) => project.status !== "completed").length;
@@ -182,6 +206,10 @@ export default function ProjectsPage() {
         ],
       },
       milestones: defaultMilestones,
+      liveCamera: {
+        enabled: false,
+        label: "Live site camera",
+      },
     });
     setDrawerOpen(true);
   };
@@ -200,10 +228,27 @@ export default function ProjectsPage() {
       landId: typeof project.landId === "string" ? project.landId : project.landId?._id,
       designId:
         typeof project.designId === "string" ? project.designId : project.designId?._id,
+      liveCamera: project.liveCamera ?? { enabled: false },
       budget: project.budget,
       milestones: project.milestones,
     });
     setDrawerOpen(true);
+  };
+
+  const handleCreateClient = async (values: ClientFormValues) => {
+    setClientSubmitting(true);
+    try {
+      const client = await createClient(values);
+      form.setFieldValue("client", client._id);
+      setClientModalOpen(false);
+      clientForm.resetFields();
+      message.success("Client account created and credentials sent");
+    } catch (error) {
+      console.error("Create client error:", error);
+      message.error("Failed to create client account");
+    } finally {
+      setClientSubmitting(false);
+    }
   };
 
   const openMilestoneUpdate = (project: Project, milestone: ProjectMilestone) => {
@@ -271,6 +316,40 @@ export default function ProjectsPage() {
       message.error("Failed to update milestone");
     } finally {
       setMilestoneSubmitting(false);
+    }
+  };
+
+  const handleDocumentSubmit = async (values: DocumentFormValues) => {
+    if (!documentProject) return;
+
+    const files = values.documents?.filter((file) => file.originFileObj) ?? [];
+    if (!files.length) {
+      message.error("Choose at least one document");
+      return;
+    }
+
+    setDocumentSubmitting(true);
+    try {
+      const payload = new FormData();
+      payload.append("title", values.title ?? "");
+      payload.append("description", values.description ?? "");
+      files.forEach((file) => {
+        if (file.originFileObj) payload.append("documents", file.originFileObj);
+      });
+
+      const updatedProject = await uploadDocuments({
+        projectId: documentProject._id,
+        data: payload,
+      });
+      setPreviewing(updatedProject);
+      message.success("Document locker updated and client notified");
+      setDocumentProject(null);
+      documentForm.resetFields();
+    } catch (error) {
+      console.error("Upload documents error:", error);
+      message.error("Failed to upload documents");
+    } finally {
+      setDocumentSubmitting(false);
     }
   };
 
@@ -429,6 +508,20 @@ export default function ProjectsPage() {
                   value: client._id,
                   label: `${client.name} (${client.email})`,
                 }))}
+                dropdownRender={(menu) => (
+                  <>
+                    {menu}
+                    <div className="select-footer-action">
+                      <Button
+                        type="link"
+                        icon={<PlusOutlined />}
+                        onClick={() => setClientModalOpen(true)}
+                      >
+                        Create client account
+                      </Button>
+                    </div>
+                  </>
+                )}
               />
             </Form.Item>
             <Form.Item
@@ -440,6 +533,47 @@ export default function ProjectsPage() {
               <Select options={projectTypeOptions} />
             </Form.Item>
           </Flex>
+
+          <Card
+            title={
+              <Space>
+                <VideoCameraOutlined />
+                <span>Live Site Camera</span>
+              </Space>
+            }
+            size="small"
+            className="stored-media-card"
+          >
+            <Form.Item
+              label="Enable live camera"
+              name={["liveCamera", "enabled"]}
+              valuePropName="checked"
+            >
+              <Switch />
+            </Form.Item>
+            <Flex gap={16} className="listing-form-row">
+              <Form.Item
+                label="Camera label"
+                name={["liveCamera", "label"]}
+                className="listing-form-field"
+              >
+                <Input placeholder="Main gate camera" />
+              </Form.Item>
+              <Form.Item
+                label="Stream URL"
+                name={["liveCamera", "streamUrl"]}
+                className="listing-form-field"
+              >
+                <Input placeholder="https://..." />
+              </Form.Item>
+            </Flex>
+            <Form.Item
+              label="Fallback snapshot URL"
+              name={["liveCamera", "lastSnapshotUrl"]}
+            >
+              <Input placeholder="https://..." />
+            </Form.Item>
+          </Card>
 
           <Flex gap={16} className="listing-form-row">
             <Form.Item label="Status" name="status" className="listing-form-field">
@@ -621,6 +755,53 @@ export default function ProjectsPage() {
               </Descriptions.Item>
             </Descriptions>
 
+            <Card
+              title="Document Locker"
+              size="small"
+              extra={
+                <Button
+                  icon={<UploadOutlined />}
+                  onClick={() => {
+                    setDocumentProject(previewing);
+                    documentForm.resetFields();
+                  }}
+                >
+                  Upload Documents
+                </Button>
+              }
+            >
+              <Space direction="vertical" size={10} className="full-width">
+                {(previewing.documentLocker ?? []).length ? (
+                  (previewing.documentLocker ?? []).map((document) => (
+                    <Flex
+                      key={document._id || document.url}
+                      align="center"
+                      justify="space-between"
+                      gap={16}
+                    >
+                      <Space direction="vertical" size={0}>
+                        <Text strong>
+                          <FileTextOutlined /> {document.title}
+                        </Text>
+                        <Text type="secondary">
+                          {document.description || document.fileName}
+                        </Text>
+                      </Space>
+                      <Button
+                        icon={<DownloadOutlined />}
+                        href={document.url}
+                        target="_blank"
+                      >
+                        Open
+                      </Button>
+                    </Flex>
+                  ))
+                ) : (
+                  <Text type="secondary">No documents uploaded yet.</Text>
+                )}
+              </Space>
+            </Card>
+
             <Card title="Milestones" size="small">
               <Space direction="vertical" size={12} className="full-width">
                 {previewing.milestones.map((milestone) => (
@@ -653,6 +834,98 @@ export default function ProjectsPage() {
           </Space>
         ) : null}
       </Modal>
+
+      <Modal
+        open={clientModalOpen}
+        title="Create Client Account"
+        onCancel={() => setClientModalOpen(false)}
+        onOk={() => clientForm.submit()}
+        confirmLoading={clientSubmitting}
+        okText="Create & Email Credentials"
+      >
+        <Form
+          form={clientForm}
+          layout="vertical"
+          requiredMark={false}
+          onFinish={handleCreateClient}
+        >
+          <Form.Item
+            label="Full name"
+            name="name"
+            rules={[{ required: true, message: "Enter the client's name." }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label="Email"
+            name="email"
+            rules={[
+              { required: true, message: "Enter the client's email." },
+              { type: "email", message: "Enter a valid email." },
+            ]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label="Phone"
+            name="phone"
+            rules={[{ required: true, message: "Enter the client's phone." }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label="Temporary password"
+            name="password"
+            extra="Leave blank to auto-generate a password and email it to the client."
+          >
+            <Input.Password />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Drawer
+        title={documentProject ? `Upload documents for ${documentProject.title}` : "Upload Documents"}
+        open={Boolean(documentProject)}
+        onClose={() => setDocumentProject(null)}
+        width={560}
+        destroyOnClose
+        extra={
+          <Space>
+            <Button onClick={() => setDocumentProject(null)}>Cancel</Button>
+            <Button
+              type="primary"
+              onClick={() => documentForm.submit()}
+              loading={documentSubmitting}
+            >
+              Upload
+            </Button>
+          </Space>
+        }
+      >
+        <Form form={documentForm} layout="vertical" onFinish={handleDocumentSubmit}>
+          <Form.Item label="Document title" name="title">
+            <Input placeholder="Construction contract" />
+          </Form.Item>
+          <Form.Item label="Description" name="description">
+            <TextArea rows={3} placeholder="Optional note for the client" />
+          </Form.Item>
+          <Form.Item
+            label="Documents"
+            name="documents"
+            valuePropName="fileList"
+            getValueFromEvent={uploadValueFromEvent}
+            rules={[{ required: true, message: "Choose at least one document." }]}
+          >
+            <Upload
+              accept=".pdf,.doc,.docx,.xls,.xlsx"
+              beforeUpload={() => false}
+              multiple
+            >
+              <Button icon={<UploadOutlined />}>Choose Documents</Button>
+            </Upload>
+          </Form.Item>
+        </Form>
+      </Drawer>
 
       <Drawer
         title={editingMilestone ? `Update ${editingMilestone.title}` : "Update Milestone"}

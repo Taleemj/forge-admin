@@ -17,8 +17,16 @@ export type ProjectPayload = {
   client: string;
   landId?: string;
   designId?: string;
+  liveCamera?: Project["liveCamera"];
   budget: Project["budget"];
   milestones: Project["milestones"];
+};
+
+export type ProjectClientPayload = {
+  name: string;
+  email: string;
+  phone: string;
+  password?: string;
 };
 
 export function useProjects() {
@@ -61,6 +69,15 @@ export function useProjects() {
     return response.data;
   };
 
+  const createClient = async (payload: ProjectClientPayload) => {
+    const response = await apiClient.post<ProjectClient>(
+      "/admin/project-clients",
+      payload,
+    );
+    await fetchProjectClients(true);
+    return response.data;
+  };
+
   const updateProject = async ({ id, payload }: { id: string; payload: ProjectPayload }) => {
     const response = await apiClient.put<Project>(`/admin/projects/${id}`, payload);
     await fetchProjects(true);
@@ -87,6 +104,24 @@ export function useProjects() {
     return response.data;
   };
 
+  const uploadDocuments = async ({
+    projectId,
+    data,
+  }: {
+    projectId: string;
+    data: FormData;
+  }) => {
+    const response = await apiClient.post<Project>(
+      `/admin/projects/${projectId}/documents`,
+      data,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    await fetchProjects(true);
+    return response.data;
+  };
+
   const deleteProject = async (id: string) => {
     await apiClient.delete(`/admin/projects/${id}`);
     await fetchProjects(true);
@@ -99,8 +134,10 @@ export function useProjects() {
     designs,
     isLoading: isLoadingProjects || isLoadingProjectClients,
     createProject,
+    createClient,
     updateProject,
     updateMilestone,
+    uploadDocuments,
     deleteProject,
     refresh: () => fetchProjects(false),
   };
